@@ -31,7 +31,7 @@ eth = get_historical_data()
 # Variables for backtest
 position = []
 action = [] # Take action
-invest = 400 # Initial value
+invest = 50 # Initial value
 qty = [] # Qty buy
 counterBuy = 0 # Counter how many ops buy
 counterSell = 0 # Counter how manu ops sell
@@ -46,14 +46,14 @@ feeSell = round((feeSell / 100),9) # Binance fee sell
 fee = 0
 ################STRATEGY PARAMS############################
 ###########################################################
-marginSell = 15
+marginSell = 18 #%
 marginSell = marginSell / 100 + 1 # Earning from each sell
-timeFrameForceSell = 288 # 24 hour 20*60/5
+timeFrameForceSell = 1152 # 96 hour 96*60/5, 8 days
 #
 #
-marginBuy = 2
+marginBuy = 3 #%
 marginBuy = marginBuy / 100 + 1 # Earning from each buy
-timeFrameStopLoss = 12 # 1 hour 1*60/5
+timeFrameStopLoss = 288 # 24 hour 24*60/5
 ############################################################
 ############################################################
 #
@@ -209,7 +209,7 @@ frames = [close_price,  action, qty, nextOps]
 strategy = pd.concat(frames, join = 'inner', axis = 1)
 
 print("The strategy")
-# strategy = strategy[strategy['macd_action'] != '0'] 
+# strategy = strategy[strategy['macd_action'] != '0']
 # print(strategy)
 strategy.to_excel("ETHUSDT-strategy.xlsx")
 
