@@ -27,7 +27,7 @@ def minutes_of_new_data(symbol, kline_size, data, source):
     if len(data) > 0:
         old = parser.parse(data["timestamp"].iloc[-1])
     elif source == "binance":
-        old = datetime.strptime("01 Jan 2021", '%d %b %Y')
+        old = datetime.strptime("01 Jan 2015", '%d %b %Y')
     if source == "binance":
         new = pd.to_datetime(binance_client.get_klines(
             symbol=symbol, interval=kline_size)[-1][0], unit='ms')
@@ -48,7 +48,7 @@ def get_all_binance(symbol, kline_size, save=False):
         symbol, kline_size, data_df, source="binance")
     delta_min = (newest_point - oldest_point).total_seconds()/60
     available_data = math.ceil(delta_min/binsizes[kline_size])
-    if oldest_point == datetime.strptime("01 Jan 2021", '%d %b %Y'):
+    if oldest_point == datetime.strptime("01 Jan 2015", '%d %b %Y'):
         print('Downloading all available %s data for %s. Be patient..!' %
               (kline_size, symbol))
     else:

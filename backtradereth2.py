@@ -31,7 +31,7 @@ eth = get_historical_data()
 # Variables for backtest
 position = []
 action = [] # Take action
-invest = 50 # Initial value
+invest = 400 # Initial value
 qty = [] # Qty buy
 counterBuy = 0 # Counter how many ops buy
 counterSell = 0 # Counter how manu ops sell
@@ -58,8 +58,6 @@ timeFrameStopLoss = 288 # 24 hour 24*60/5
 ############################################################
 #
 nextOps = []
-sellFlag = 0
-killOps = 0
 sellFlag = 0
 
 print("Backtesting in progress, this take time...")
