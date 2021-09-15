@@ -70,9 +70,11 @@ def command_help(m):
     itemb = types.KeyboardButton('/enablebot')
     itemc = types.KeyboardButton('/disablebot')
     iteme = types.KeyboardButton('/trader')
+    itemf = types.KeyboardButton('/botstatus')
     itemd = types.KeyboardButton('/list')
     markup.row(itema)
     markup.row(iteme)
+    markup.row(itemf)
     markup.row(itemb)
     markup.row(itemc)
     markup.row(itemd)
@@ -87,9 +89,11 @@ def actautobot(m):
     itemb = types.KeyboardButton('/enablebot')
     itemc = types.KeyboardButton('/disablebot')
     iteme = types.KeyboardButton('/trader')
+    itemf = types.KeyboardButton('/botstatus')
     itemd = types.KeyboardButton('/list')
     markup.row(itema)
     markup.row(iteme)
+    markup.row(itemf)
     markup.row(itemb)
     markup.row(itemc)
     markup.row(itemd)
@@ -108,9 +112,11 @@ def dautobot(m):
     itemb = types.KeyboardButton('/enablebot')
     itemc = types.KeyboardButton('/disablebot')
     iteme = types.KeyboardButton('/trader')
+    itemf = types.KeyboardButton('/botstatus')
     itemd = types.KeyboardButton('/list')
     markup.row(itema)
     markup.row(iteme)
+    markup.row(itemf)
     markup.row(itemb)
     markup.row(itemc)
     markup.row(itemd)
@@ -173,9 +179,11 @@ def trade(m):
     itemb = types.KeyboardButton('/enablebot')
     itemc = types.KeyboardButton('/disablebot')
     iteme = types.KeyboardButton('/trader')
+    itemf = types.KeyboardButton('/botstatus')
     itemd = types.KeyboardButton('/list')
     markup.row(itema)
     markup.row(iteme)
+    markup.row(itemf)
     markup.row(itemb)
     markup.row(itemc)
     markup.row(itemd)
@@ -199,9 +207,11 @@ def trader(m):
     itemb = types.KeyboardButton('/enablebot')
     itemc = types.KeyboardButton('/disablebot')
     iteme = types.KeyboardButton('/trader')
+    itemf = types.KeyboardButton('/botstatus')
     itemd = types.KeyboardButton('/list')
     markup.row(itema)
     markup.row(iteme)
+    markup.row(itemf)
     markup.row(itemb)
     markup.row(itemc)
     markup.row(itemd)
@@ -212,7 +222,33 @@ def trader(m):
         for i in df.index:
             bot.send_message(cid, 'Qty: ' +  str(df['qty'][i]) + "\n Next Ops: " + str(df['nextOps'][i]) + " \n sellFlag: " + str(df['sellFlag'][i]) + " \n counterStopLoss: " + str(df['counterStopLoss'][i]) + " \n counterForceSell: " + str(df['counterForceSell'][i]) + " \n counterBuy: " + str(df['counterBuy'][i]) + " \n Ops: " + str(df['ops'][i]), parse_mode='Markdown', reply_markup=markup)
     else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)
+
+@bot.message_handler(commands=['botstatus'])
+def trader(m):
+    cid = m.chat.id
+    global gyear
+    markup = types.ReplyKeyboardMarkup()
+    itema = types.KeyboardButton('/tradehistory')
+    itemb = types.KeyboardButton('/enablebot')
+    itemc = types.KeyboardButton('/disablebot')
+    iteme = types.KeyboardButton('/trader')
+    itemf = types.KeyboardButton('/botstatus')
+    itemd = types.KeyboardButton('/list')
+    markup.row(itema)
+    markup.row(iteme)
+    markup.row(itemf)
+    markup.row(itemb)
+    markup.row(itemc)
+    markup.row(itemd)
+    if  int(user['token'].values) == cid:
+        query  = "select case when status = '1' then 'Bot enabled' else 'Bot diabled' end status from t_signal"
+        df = pd.read_sql(query,con=db_con)
+        for i in df.index:
+            bot.send_message(cid, 'Status: ' +  str(df['status'][i]), parse_mode='Markdown', reply_markup=markup)
+    else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)          
+
 
 
 # default handler for every other text
