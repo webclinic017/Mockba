@@ -1,4 +1,3 @@
-import predict_proximity as pp
 import pandas as pd
 import numpy as np
 from math import floor
@@ -46,7 +45,7 @@ feeSell = round((feeSell / 100),9) # Binance fee sell
 fee = 0
 ################STRATEGY PARAMS############################
 ###########################################################
-marginSell = 18 #%
+marginSell = 35 #%
 marginSell = marginSell / 100 + 1 # Earning from each sell
 timeFrameForceSell = 1152 # 96 hour 96*60/5, 8 days
 #

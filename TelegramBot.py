@@ -1,5 +1,6 @@
 from os import defpath
 import telebot
+import requests
 from telebot import types
 import sqlite3
 import pandas as pd
@@ -28,7 +29,20 @@ def disable_bot():
     cur.execute(sql)
     db_con.commit()  
     db_con.close
- 
+
+# Def update ops
+def restart_bot():
+    sql = 'insert into trader values (0,0,0,0,0,0,0,0)'
+    cur = db_con.cursor()
+    cur.execute(sql)
+    db_con.commit()  
+    db_con.close    
+
+def getTicker():
+   url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=5m"
+   r = requests.get(url)
+   df = pd.DataFrame(r.json()) 
+   return df 
 
 bot = telebot.TeleBot(API_TOKEN)
 final_result = []
@@ -71,12 +85,14 @@ def command_help(m):
     itemc = types.KeyboardButton('/disablebot')
     iteme = types.KeyboardButton('/trader')
     itemf = types.KeyboardButton('/botstatus')
+    itemg = types.KeyboardButton('/resetbot')
     itemd = types.KeyboardButton('/list')
     markup.row(itema)
     markup.row(iteme)
     markup.row(itemf)
     markup.row(itemb)
     markup.row(itemc)
+    markup.row(itemg)
     markup.row(itemd)
     bot.send_message(cid, help_text, reply_markup=markup) 
 
@@ -85,17 +101,7 @@ def command_help(m):
 def actautobot(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    itema = types.KeyboardButton('/tradehistory')
-    itemb = types.KeyboardButton('/enablebot')
-    itemc = types.KeyboardButton('/disablebot')
-    iteme = types.KeyboardButton('/trader')
-    itemf = types.KeyboardButton('/botstatus')
     itemd = types.KeyboardButton('/list')
-    markup.row(itema)
-    markup.row(iteme)
-    markup.row(itemf)
-    markup.row(itemb)
-    markup.row(itemc)
     markup.row(itemd)
     if int(user['token'].values) == cid:
         enable_bot()
@@ -108,17 +114,7 @@ def actautobot(m):
 def dautobot(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    itema = types.KeyboardButton('/tradehistory')
-    itemb = types.KeyboardButton('/enablebot')
-    itemc = types.KeyboardButton('/disablebot')
-    iteme = types.KeyboardButton('/trader')
-    itemf = types.KeyboardButton('/botstatus')
     itemd = types.KeyboardButton('/list')
-    markup.row(itema)
-    markup.row(iteme)
-    markup.row(itemf)
-    markup.row(itemb)
-    markup.row(itemc)
     markup.row(itemd)
     if  int(user['token'].values) == cid:
         disable_bot()
@@ -175,17 +171,7 @@ def trade(m):
     cid = m.chat.id
     global gyear
     markup = types.ReplyKeyboardMarkup()
-    itema = types.KeyboardButton('/tradehistory')
-    itemb = types.KeyboardButton('/enablebot')
-    itemc = types.KeyboardButton('/disablebot')
-    iteme = types.KeyboardButton('/trader')
-    itemf = types.KeyboardButton('/botstatus')
     itemd = types.KeyboardButton('/list')
-    markup.row(itema)
-    markup.row(iteme)
-    markup.row(itemf)
-    markup.row(itemb)
-    markup.row(itemc)
     markup.row(itemd)
     if  int(user['token'].values) == cid:
         query  = "select qty, nextOps, ops, STRFTIME('%d/%m/%Y %H:%M',datetime(close_time/1000, 'unixepoch')) close_time from trader_history"
@@ -194,7 +180,7 @@ def trade(m):
         df = pd.read_sql(query,con=db_con)
         bot.send_message(cid, 'Tranding history')
         for i in df.index:
-            bot.send_message(cid, 'Close time: ' +  str(df['close_time'][i]) + "\n Next Ops: " + str(df['nextOps'][i]) + " \n Op: " + str(df['ops'][i]) + " \n Qty: " + str(df['qty'][i]), parse_mode='Markdown', reply_markup=markup)
+            bot.send_message(cid, 'Close time: ' +  str(df['close_time'][i]) + "\n Next Ops: " + str(round(df['nextOps'][i],8)) + " \n Op: " + str(df['ops'][i]) + " \n Qty: " + str(round(df['qty'][i],8)), parse_mode='Markdown', reply_markup=markup)
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)
 
@@ -203,24 +189,17 @@ def trader(m):
     cid = m.chat.id
     global gyear
     markup = types.ReplyKeyboardMarkup()
-    itema = types.KeyboardButton('/tradehistory')
-    itemb = types.KeyboardButton('/enablebot')
-    itemc = types.KeyboardButton('/disablebot')
-    iteme = types.KeyboardButton('/trader')
-    itemf = types.KeyboardButton('/botstatus')
     itemd = types.KeyboardButton('/list')
-    markup.row(itema)
-    markup.row(iteme)
-    markup.row(itemf)
-    markup.row(itemb)
-    markup.row(itemc)
     markup.row(itemd)
     if  int(user['token'].values) == cid:
         query  = "select * from trader"
         df = pd.read_sql(query,con=db_con)
-        bot.send_message(cid, 'Trader')
+        eth = getTicker()
         for i in df.index:
-            bot.send_message(cid, 'Qty: ' +  str(df['qty'][i]) + "\n Next Ops: " + str(df['nextOps'][i]) + " \n sellFlag: " + str(df['sellFlag'][i]) + " \n counterStopLoss: " + str(df['counterStopLoss'][i]) + " \n counterForceSell: " + str(df['counterForceSell'][i]) + " \n counterBuy: " + str(df['counterBuy'][i]) + " \n Ops: " + str(df['ops'][i]), parse_mode='Markdown', reply_markup=markup)
+            bot.send_message(cid, 'Qty: ' +  str(round(df['qty'][i],8)) + "\n Next Ops: " + str(round(df['nextOps'][i],8)) + " \n sellFlag: " + str(df['sellFlag'][i]) + " \n counterStopLoss: " + str(df['counterStopLoss'][i]) 
+            + " of 288 (24 hours) \n counterForceSell: " + str(df['counterForceSell'][i]) + " of 1152 (96 hours) \n counterBuy: " 
+            + str(df['counterBuy'][i]) + " \n Ops: " 
+            + str(df['ops'][i]) + " \n Margin Sell 35 %" + " \n Margin buy 3 % \n Ticker: " + str(eth[4][499]), parse_mode='Markdown', reply_markup=markup)
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)
 
@@ -229,26 +208,28 @@ def trader(m):
     cid = m.chat.id
     global gyear
     markup = types.ReplyKeyboardMarkup()
-    itema = types.KeyboardButton('/tradehistory')
-    itemb = types.KeyboardButton('/enablebot')
-    itemc = types.KeyboardButton('/disablebot')
-    iteme = types.KeyboardButton('/trader')
-    itemf = types.KeyboardButton('/botstatus')
     itemd = types.KeyboardButton('/list')
-    markup.row(itema)
-    markup.row(iteme)
-    markup.row(itemf)
-    markup.row(itemb)
-    markup.row(itemc)
     markup.row(itemd)
     if  int(user['token'].values) == cid:
-        query  = "select case when status = '1' then 'Bot enabled' else 'Bot diabled' end status from t_signal"
+        query  = "select case when status = '1' then 'Bot enabled' else 'Bot disabled' end status from t_signal"
         df = pd.read_sql(query,con=db_con)
         for i in df.index:
             bot.send_message(cid, 'Status: ' +  str(df['status'][i]), parse_mode='Markdown', reply_markup=markup)
     else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)          
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)  
 
+@bot.message_handler(commands=['resetbot'])
+def trader(m):
+    cid = m.chat.id
+    global gyear
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    if  int(user['token'].values) == cid:
+        restart_bot()
+        bot.send_message(cid, 'All operations start from cero...done !!', parse_mode='Markdown', reply_markup=markup)
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)                  
 
 
 # default handler for every other text

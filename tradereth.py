@@ -9,7 +9,7 @@ import sendmail as sm
 api_key = api.Api().api_key
 api_secret = api.Api().api_secret
 client = Client(api_key, api_secret)
-db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
+db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
 
 print('Trading')
 # Variables for trading
@@ -28,7 +28,7 @@ feeSell = (feeSell / 100) # Binance fee sell
 fee = 0
 ################STRATEGY PARAMS############################
 ###########################################################
-marginSell = 18 #%
+marginSell = 35 #%
 marginSell = marginSell / 100 + 1 # Earning from each sell
 timeFrameForceSell = 1152 # 96 hour 96*60/5, 8 days
 #
