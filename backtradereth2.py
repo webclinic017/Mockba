@@ -8,7 +8,9 @@ import sqlite3
 # plt.rcParams['figure.figsize'] = (20, 10)
 # plt.style.use('fivethirtyeight')
 
-# pp.predict_proximity(3120,30)
+# db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
+db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
+
 
 # Retrieving historical data from database
 def get_historical_data():
@@ -30,7 +32,7 @@ eth = get_historical_data()
 # Variables for backtest
 position = []
 action = [] # Take action
-invest = 40 # Initial value
+invest = 158 # Initial value
 qty = [] # Qty buy
 counterBuy = 0 # Counter how many ops buy
 counterSell = 0 # Counter how manu ops sell
@@ -45,14 +47,16 @@ feeSell = round((feeSell / 100),9) # Binance fee sell
 fee = 0
 ################STRATEGY PARAMS############################
 ###########################################################
-marginSell = 0.2 #% last 35% - new 0.5 non stop
+params = pd.read_sql('SELECT * FROM parameters',con=db_con)
+
+marginSell = float(params['margingsell'].values) #%
 marginSell = marginSell / 100 + 1 # Earning from each sell
-timeFrameForceSell = 9999999 # 96 hour 96*60/5, 8 days
+ForceSell = float(params['forcesell'].values / 100) # %
 #
 #
-marginBuy = 0.2 #% last 3% new 0.5 nonstop
+marginBuy = float(params['margingbuy'].values) #%
 marginBuy = marginBuy / 100 + 1 # Earning from each buy
-timeFrameStopLoss = 999999 # 24 hour 24*60/5
+StopLoss = float(params['stoploss'].values / 100) # %
 ############################################################
 ############################################################
 #
@@ -154,8 +158,7 @@ for i in range(len(eth['close'])):
          counterStopLoss = 1
     # Force sell  24 hour
     # elif eth['close'][i] >= (nextOps[i - (i - counterBuy)] * marginLossSell) and sellFlag == 1:
-    elif counterForceSell ==  timeFrameForceSell and sellFlag == 1:
-         # print('Counter Force Sell - ' + str(counterForceSell))
+    elif eth['close'][i] <=  nextOps[i - (i - counterBuy)] - (nextOps[i - (i - counterBuy)] * ForceSell) and sellFlag == 1:
          fee = (((invest / eth['close'][i - (i - counterBuy)]) * eth['close'][i])) * feeSell
          qty[i] = (qty[i - (i - counterBuy)] * eth['close'][i]) - fee # Sell amount
          nextOps[i] = qty[i] / ((qty[i] / eth['close'][i]) * marginBuy) # Next buy
@@ -174,7 +177,7 @@ for i in range(len(eth['close'])):
          counterForceSell = 1
     # elif eth['close'][i] <= (nextOps[i - (i - counterSell)] * marginLossBuy) and counterStopLoss ==  24 and sellFlag == 0: 
     # Stop Loss after 1 hour of inactivity
-    elif counterStopLoss ==  timeFrameStopLoss and sellFlag == 0:   
+    elif eth['close'][i] >=  nextOps[i - (i - counterSell)] + (nextOps[i - (i - counterSell)] * StopLoss) and sellFlag == 0:   
          # print(counterStopLoss)     
          action[i] = 'stopLoss'
          counterBuy =  i

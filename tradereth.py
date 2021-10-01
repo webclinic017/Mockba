@@ -14,7 +14,6 @@ db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=
 
 print('Trading')
 # Variables for trading
-invest = float(client.get_asset_balance(asset='USDT')['free']) #400 # Initial value
 qty = 0 # Qty buy
 counterStopLoss = 0 # Counter to stop when to loose
 counterForceSell = 0 # Force sell
@@ -29,14 +28,14 @@ fee = 0
 ###########################################################
 params = pd.read_sql('SELECT * FROM parameters',con=db_con)
 
-marginSell = float(params['margingsell'].values) #% last 35% - new 0.5 non stop
+marginSell = float(params['margingsell'].values) #%
 marginSell = marginSell / 100 + 1 # Earning from each sell
-timeFrameForceSell = int(params['forcesell'].values) # 96 hour 96*60/5, 8 days
+ForceSell = float(params['forcesell'].values / 100) # %
 #
 #
-marginBuy = float(params['margingbuy'].values) #% last 3% new 0.5 nonstop
+marginBuy = float(params['margingbuy'].values) #%
 marginBuy = marginBuy / 100 + 1 # Earning from each buy
-timeFrameStopLoss = int(params['stoploss'].values) # 24 hour 24*60/5
+StopLoss = float(params['stoploss'].values / 100) # %
 ############################################################
 ############################################################
 #
@@ -93,6 +92,7 @@ while True:
         # Fisrt buy
         if operations['counterBuy'].values == 0:
             print('First Buy')
+            invest = float(client.get_asset_balance(asset='USDT')['free']) #400 # Initial value
             fee = (invest / float(eth[4][499])) * feeBuy
             qty = round(((invest / float(eth[4][499])) - fee) - 0.0001,4)
             nextOps = round(float(eth[4][499]) * marginSell,2)
@@ -113,11 +113,6 @@ while True:
             balance_eth = float(client.get_asset_balance(asset='ETH')['free'])
             fee = (balance_eth * feeSell)
             qty = round(((balance_eth * float(eth[4][499])) - fee) /  float(eth[4][499]) - 0.0001 ,4)# Sell amount
-            print(balance_eth)
-            print(feeSell)
-            print(fee)
-            print(qty)
-            print(nextOps)
             nextOps = round(qty / ((qty / float(eth[4][499]) * marginBuy)),2) # Next buy
             print(nextOps)
             counterStopLoss = 1
@@ -132,7 +127,7 @@ while True:
             qty = 0
             nextOps = 0
         # force sell     
-        elif int(operations['counterForceSell'].values) ==  int(timeFrameForceSell) and operations['sellFlag'].values == 1:
+        elif float(eth[4][499]) <=  float(operations['nextOps'].values) - (float(operations['nextOps'].values) * ForceSell) and operations['sellFlag'].values == 1:
             print('Force Sell')
             fee = (balance_eth * feeSell)
             qty = round(((balance_eth * float(eth[4][499])) - fee) /  float(eth[4][499]) - 0.0001 ,4)# Sell amount
@@ -167,7 +162,7 @@ while True:
             fee = 0
             qty = 0
             nextOps = 0
-        elif int(operations['counterStopLoss'].values) ==  int(timeFrameStopLoss) and operations['sellFlag'].values == 0:   
+        elif float(eth[4][499]) >=  float(operations['nextOps'].values) + (float(operations['nextOps'].values) * StopLoss) and operations['sellFlag'].values == 0:   
             print('Stop Loss')     
             balance_usdt = float(client.get_asset_balance(asset='USDT')['free'])
             fee = (balance_usdt / float(eth[4][499])) * feeBuy

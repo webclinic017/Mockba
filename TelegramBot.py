@@ -225,9 +225,11 @@ def trader(m):
             + " of " + str(params['forcesell'].values)
             + " \n Ops: " 
             + str(df['ops'][i]) 
-            + " \n Margin Sell " + str(params['margingsell'].values) + " %" 
-            + " \n Margin buy " + str(params['margingbuy'].values) 
-            + "  % \n Ticker: " + str(eth[4][499]) 
+            + " \n Margin Sell: " + str(params['margingsell'].values) + " %" 
+            + " \n Margin buy: " + str(params['margingbuy'].values) + " %"
+            + " \n ForceSell: " + str(params['forcesell'].values) + " %" 
+            + " \n StopLoss: " + str(params['stoploss'].values) + " %"
+            + " \n Ticker: " + str(eth[4][499]) 
             + " \n\n Balance Eth: " + str(round(balance_eth,4)) + " \n Balance USDT: " 
             + str(round(balance_usdt,2)), parse_mode='Markdown', reply_markup=markup)
     else:    
