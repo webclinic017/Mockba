@@ -10,12 +10,11 @@ api_key = api.Api().api_key
 api_secret = api.Api().api_secret
 client = Client(api_key, api_secret)
 db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
+# db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
 
 print('Trading')
 # Variables for trading
 invest = float(client.get_asset_balance(asset='USDT')['free']) #400 # Initial value
-balance_usdt = float(client.get_asset_balance(asset='USDT')['free'])
-balance_eth = float(client.get_asset_balance(asset='ETH')['free'])
 qty = 0 # Qty buy
 counterStopLoss = 0 # Counter to stop when to loose
 counterForceSell = 0 # Force sell
@@ -28,14 +27,16 @@ feeSell = (feeSell / 100) # Binance fee sell
 fee = 0
 ################STRATEGY PARAMS############################
 ###########################################################
-marginSell = 35 #%
+params = pd.read_sql('SELECT * FROM parameters',con=db_con)
+
+marginSell = float(params['margingsell'].values) #% last 35% - new 0.5 non stop
 marginSell = marginSell / 100 + 1 # Earning from each sell
-timeFrameForceSell = 1152 # 96 hour 96*60/5, 8 days
+timeFrameForceSell = int(params['forcesell'].values) # 96 hour 96*60/5, 8 days
 #
 #
-marginBuy = 3 #%
+marginBuy = float(params['margingbuy'].values) #% last 3% new 0.5 nonstop
 marginBuy = marginBuy / 100 + 1 # Earning from each buy
-timeFrameStopLoss = 288 # 24 hour 24*60/5
+timeFrameStopLoss = int(params['stoploss'].values) # 24 hour 24*60/5
 ############################################################
 ############################################################
 #
@@ -65,12 +66,12 @@ def update_trader_nextOps():
     cur.execute(sql)
     db_con.commit() 
 
-# Def update clos_time
+# Def update close_time
 def update_trader_close_time(close_time):
     sql = "update trader set close_time = '" + str(close_time) + "'"
     cur = db_con.cursor()
     cur.execute(sql)
-    db_con.commit()        
+    db_con.commit()                             
 
 # Def get next ops
 def getNextOps():
@@ -93,70 +94,96 @@ while True:
         if operations['counterBuy'].values == 0:
             print('First Buy')
             fee = (invest / float(eth[4][499])) * feeBuy
-            qty = ((invest / float(eth[4][499])) - fee) - 0.0001
-            nextOps = float(eth[4][499]) * marginSell
+            qty = round(((invest / float(eth[4][499])) - fee) - 0.0001,4)
+            nextOps = round(float(eth[4][499]) * marginSell,2)
             sellFlag = 1
             counterForceSell = 1
             data = (qty,nextOps,sellFlag,counterStopLoss,counterForceSell,1,'buy',str(eth[0][499]))
+            client.order_market_buy(symbol="ETHUSDT", quantity=qty)
             act_trader_nextOps(data)
-            client.order_market_buy(symbol="ETHUSDT", quantity=round(qty,4))
             sm.sendMail('First Buy')
             time.sleep(3)
             print('Done...')
+            fee = 0
+            qty = 0
+            nextOps = 0
         # Sell    
-        elif float(eth[4][499]) >= operations['nextOps'].values and operations['sellFlag'].values == 1:
+        elif float(eth[4][499]) >= float(operations['nextOps'].values) and operations['sellFlag'].values == 1:
             print('Sell')
+            balance_eth = float(client.get_asset_balance(asset='ETH')['free'])
             fee = (balance_eth * feeSell)
-            qty = (balance_eth  - fee) - 0.0001 # Sell amount
-            nextOps = qty / ((qty / float(eth[4][499]) * marginBuy)) # Next buy
+            qty = round(((balance_eth * float(eth[4][499])) - fee) /  float(eth[4][499]) - 0.0001 ,4)# Sell amount
+            print(balance_eth)
+            print(feeSell)
+            print(fee)
+            print(qty)
+            print(nextOps)
+            nextOps = round(qty / ((qty / float(eth[4][499]) * marginBuy)),2) # Next buy
+            print(nextOps)
             counterStopLoss = 1
+            sellFlag = 0
             data = (float(qty),float(nextOps),sellFlag,counterStopLoss,counterForceSell,1,'sell',str(eth[0][499]))
+            client.order_market_sell(symbol="ETHUSDT", quantity=qty)
             act_trader_nextOps(data)
-            client.order_market_sell(symbol="ETHUSDT", quantity=round(qty,4))
             sm.sendMail('Sell')
             time.sleep(3)
             print('Done...')
+            fee = 0
+            qty = 0
+            nextOps = 0
         # force sell     
-        elif operations['counterForceSell'].values ==  timeFrameForceSell and operations['sellFlag'].values == 1:
+        elif int(operations['counterForceSell'].values) ==  int(timeFrameForceSell) and operations['sellFlag'].values == 1:
             print('Force Sell')
             fee = (balance_eth * feeSell)
-            qty = (balance_eth  - fee) - 0.0001 # Sell amount
-            nextOps = qty / ((qty / float(eth[4][499]) * marginBuy)) # Next buy
+            qty = round(((balance_eth * float(eth[4][499])) - fee) /  float(eth[4][499]) - 0.0001 ,4)# Sell amount
+            nextOps = round(qty / ((qty / float(eth[4][499]) * marginBuy)),2) # Next buy
             print(round(qty,4))
             counterStopLoss = 1 
+            sellFlag = 0
             data = (float(qty),float(nextOps),sellFlag,counterStopLoss,counterForceSell,1,'forceSell',str(eth[0][499]))
+            client.order_market_sell(symbol="ETHUSDT", quantity=qty)
             act_trader_nextOps(data)
-            client.order_market_sell(symbol="ETHUSDT", quantity=round(qty,4))
             sm.sendMail('Force Sell')
             time.sleep(3)
             print('Done...')
+            fee = 0
+            qty = 0
+            nextOps = 0
         # Buy     
-        elif float(eth[4][499]) <= operations['nextOps'].values and operations['sellFlag'].values == 0:
+        elif float(eth[4][499]) <= float(operations['nextOps'].values) and operations['sellFlag'].values == 0:
             print('Buy')
+            balance_usdt = float(client.get_asset_balance(asset='USDT')['free'])
             fee = (balance_usdt / float(eth[4][499])) * feeBuy
-            qty = (balance_usdt / float(eth[4][499]) - fee) - 0.0001 # Buy amount
-            nextOps = float(eth[4][499]) * marginSell
+            qty = round(((balance_usdt / float(eth[4][499])) - fee) - 0.0001,4) # Buy amount
+            nextOps = round(float(eth[4][499]) * marginSell,2)
             sellFlag = 1
             counterForceSell = 1 
             data = (float(qty),float(nextOps),sellFlag,counterStopLoss,counterForceSell,1,'buy',str(eth[0][499]))
-            act_trader_nextOps(data)
             client.order_market_buy(symbol="ETHUSDT", quantity=round(qty,4))
+            act_trader_nextOps(data)
             sm.sendMail('Buy')
             time.sleep(3)
             print('Done...')
-        elif operations['counterStopLoss'].values ==  timeFrameStopLoss and operations['sellFlag'].values == 0:   
+            fee = 0
+            qty = 0
+            nextOps = 0
+        elif int(operations['counterStopLoss'].values) ==  int(timeFrameStopLoss) and operations['sellFlag'].values == 0:   
             print('Stop Loss')     
+            balance_usdt = float(client.get_asset_balance(asset='USDT')['free'])
             fee = (balance_usdt / float(eth[4][499])) * feeBuy
-            qty = (balance_usdt / float(eth[4][499]) - fee) - 0.0001 # Buy amount
+            qty = ((balance_usdt / float(eth[4][499])) - fee) - 0.0001 # Buy amount
             nextOps = float(eth[4][499]) * marginSell
             sellFlag = 1
             counterForceSell = 1 
-            data = (float(qty),float(nextOps),sellFlag,counterStopLoss,counterForceSell,1,'stopLoss',str(eth[0][499]))
-            act_trader_nextOps(data)  
+            data = (float(qty),float(nextOps),sellFlag,counterStopLoss,counterForceSell,1,'stopLoss',str(eth[0][499]))  
             client.order_market_buy(symbol="ETHUSDT", quantity=round(qty,4))
+            act_trader_nextOps(data)
             sm.sendMail('Stop Loss')
             time.sleep(3)
             print('Done...')   
+            fee = 0
+            qty = 0
+            nextOps = 0
         else:
             update_trader_nextOps()
             update_trader_close_time(eth[0][499])

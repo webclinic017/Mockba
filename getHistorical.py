@@ -14,7 +14,7 @@ binance_api_key = api.Api().api_key  # Enter your own API-key here
 binance_api_secret = api.Api().api_secret  # Enter your own API-secret here
 
 ### CONSTANTS
-binsizes = {"1m": 1, "5m": 5, "1h": 60, "1d": 1440}
+binsizes = {"1m": 1, "5m": 5, "1h": 60, "2h": 120, "1d": 1440}
 batch_size = 750
 binance_client = Client(api_key=binance_api_key, api_secret=binance_api_secret)
 

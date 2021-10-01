@@ -1,13 +1,19 @@
 from os import defpath
 import telebot
+import apis as api
 import requests
 from telebot import types
 import sqlite3
 import pandas as pd
+from binance.client import Client
 
 # Telegram Bot
 API_TOKEN = '1042444870:AAHEuYUbs2YJrGDUEfd1ZjvomJafqCStMKM'
+api_key = api.Api().api_key
+api_secret = api.Api().api_secret
+client = Client(api_key, api_secret)
 db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
+# db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
 
 # Def get next ops
 def getUser():
@@ -36,7 +42,15 @@ def restart_bot():
     cur = db_con.cursor()
     cur.execute(sql)
     db_con.commit()  
-    db_con.close    
+    db_con.close  
+
+# Def update ops
+def paramsAction(data):
+    sql = 'insert into parameters values (?,?,?,?)'
+    cur = db_con.cursor()
+    cur.execute(sql, data)
+    db_con.commit()  
+    db_con.close        
 
 def getTicker():
    url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=5m"
@@ -48,12 +62,13 @@ bot = telebot.TeleBot(API_TOKEN)
 final_result = []
 gyear = ""
 gmonth = ""
+gdata = ""
 user = getUser()
 ########################################################################################################
 ###############################Operaciones para manejar en el Bot#######################################
 ########################################################################################################
 # only used for console output now
-    
+'''    
 def listener(messages):
     """
     When new messages arrive TeleBot will call this function.
@@ -64,6 +79,7 @@ def listener(messages):
             print(str(m.chat.first_name) + " [" + str(m.chat.id) + "]: " + m.text)
 
     bot.set_update_listener(listener)  # register listener            
+'''
 
 # Comando inicio
 @bot.message_handler(commands=['start'])
@@ -86,13 +102,15 @@ def command_help(m):
     iteme = types.KeyboardButton('/trader')
     itemf = types.KeyboardButton('/botstatus')
     itemg = types.KeyboardButton('/resetbot')
+    itemh = types.KeyboardButton('/params')
     itemd = types.KeyboardButton('/list')
     markup.row(itema)
     markup.row(iteme)
-    markup.row(itemf)
     markup.row(itemb)
     markup.row(itemc)
     markup.row(itemg)
+    markup.row(itemh)
+    markup.row(itemf)
     markup.row(itemd)
     bot.send_message(cid, help_text, reply_markup=markup) 
 
@@ -180,7 +198,7 @@ def trade(m):
         df = pd.read_sql(query,con=db_con)
         bot.send_message(cid, 'Tranding history')
         for i in df.index:
-            bot.send_message(cid, 'Close time: ' +  str(df['close_time'][i]) + "\n Next Ops: " + str(round(df['nextOps'][i],8)) + " \n Op: " + str(df['ops'][i]) + " \n Qty: " + str(round(df['qty'][i],8)), parse_mode='Markdown', reply_markup=markup)
+            bot.send_message(cid, 'Close time: ' +  str(df['close_time'][i]) + "\n Next Ops: " + str(round(df['nextOps'][i],4)) + " \n Op: " + str(df['ops'][i]) + " \n Qty: " + str(round(df['qty'][i],4)), parse_mode='Markdown', reply_markup=markup)
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)
 
@@ -191,15 +209,27 @@ def trader(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
+    params = pd.read_sql('SELECT * FROM parameters',con=db_con)
+    balance_usdt = float(client.get_asset_balance(asset='USDT')['free'])
+    balance_eth = float(client.get_asset_balance(asset='ETH')['free'])
     if  int(user['token'].values) == cid:
         query  = "select * from trader"
         df = pd.read_sql(query,con=db_con)
         eth = getTicker()
         for i in df.index:
-            bot.send_message(cid, 'Qty: ' +  str(round(df['qty'][i],8)) + "\n Next Ops: " + str(round(df['nextOps'][i],8)) + " \n sellFlag: " + str(df['sellFlag'][i]) + " \n counterStopLoss: " + str(df['counterStopLoss'][i]) 
-            + " of 288 (24 hours) \n counterForceSell: " + str(df['counterForceSell'][i]) + " of 1152 (96 hours) \n counterBuy: " 
-            + str(df['counterBuy'][i]) + " \n Ops: " 
-            + str(df['ops'][i]) + " \n Margin Sell 35 %" + " \n Margin buy 3 % \n Ticker: " + str(eth[4][499]), parse_mode='Markdown', reply_markup=markup)
+            bot.send_message(cid, 'Qty: ' +  str(round(df['qty'][i],4)) + "\n Next Ops: " + str(round(df['nextOps'][i],4)) + " \n sellFlag: " + str(df['sellFlag'][i]) 
+            + " \n counterStopLoss: " 
+            + str(df['counterStopLoss'][i]) + " of " +str( params['stoploss'].values) 
+            + " \n counterForceSell: " 
+            + str(df['counterForceSell'][i]) 
+            + " of " + str(params['forcesell'].values)
+            + " \n Ops: " 
+            + str(df['ops'][i]) 
+            + " \n Margin Sell " + str(params['margingsell'].values) + " %" 
+            + " \n Margin buy " + str(params['margingbuy'].values) 
+            + "  % \n Ticker: " + str(eth[4][499]) 
+            + " \n\n Balance Eth: " + str(round(balance_eth,4)) + " \n Balance USDT: " 
+            + str(round(balance_usdt,2)), parse_mode='Markdown', reply_markup=markup)
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)
 
@@ -229,8 +259,30 @@ def trader(m):
         restart_bot()
         bot.send_message(cid, 'All operations start from cero...done !!', parse_mode='Markdown', reply_markup=markup)
     else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)                  
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup) 
 
+@bot.message_handler(commands=['params'])
+def params(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    bot.send_message(cid, 'Put your params, it will update params for margingsell, margingbuy, forcesell, stoploss. @ Separated. Example: 0.3@0.3@99999999@99999999', parse_mode='Markdown', reply_markup=markup)                        
+    bot.register_next_step_handler_by_chat_id(cid, paramsActions)
+
+def paramsActions(m):
+    cid = m.chat.id
+    valor = m.text
+    global gdata
+    gdata = (valor.split('@')[0],valor.split('@')[1],valor.split('@')[2],valor.split('@')[3])
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    if  int(user['token'].values) == cid:
+        paramsAction(gdata)
+        bot.send_message(cid, 'Params has changed...done !!', parse_mode='Markdown', reply_markup=markup)
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)     
 
 # default handler for every other text
 @bot.message_handler(func=lambda message: True, content_types=['text'])

@@ -1,5 +1,4 @@
 # Library Imports
-import postgrescon as pg
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -11,10 +10,6 @@ from keras.layers import LSTM, Dense, Dropout
 
 from sqlalchemy import create_engine
 
-import getHistorical as gh
-# import getHistory as gh
-# import postgrescon as pg
-import load_preds as lp
 
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -31,12 +26,7 @@ def analize(psymbol):
       print("--------------No GPU found--------------")
     #tf_device='/gpu:1
 
-    # Conexión a base de datos
-    postgre_con = pg.Postgres().postgre_con
-
     # Tomando histórico
-    # gh.getHistoricalData('ETHUSDT')
-    gh.get_all_binance(psymbol, "5m", save=True)
     # Loading/Reading in the Data
     df = pd.read_csv(
         str(psymbol) + "-5m-data.csv").sort_values(by="timestamp", ascending=True)
@@ -162,7 +152,7 @@ def analize(psymbol):
     # Compiling the data with selected specifications
     model.compile(optimizer='adam', loss='mse', metrics=['accuracy'])
 
-    res = model.fit(X, y, epochs=5, batch_size=3550, validation_split=0.1)
+    res = model.fit(X, y, epochs=50, batch_size=3550, validation_split=0.1)
 
     visualize_training_results(res)
     plt.figure(figsize=(12,5))
@@ -214,7 +204,7 @@ def analize(psymbol):
     # lp.load_pred(postgre_con, "ETHUSDT")
 
     # Number of periods back to visualize the actual values
-    pers = 10
+    pers = 300
 
     # Transforming the actual values to their original price
     actual = pd.DataFrame(scaler.inverse_transform(df[["close"]].tail(pers)), index=df.close.tail(pers).index, columns=df.columns).append(preds.head(1))

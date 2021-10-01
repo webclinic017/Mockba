@@ -17,7 +17,7 @@ def get_historical_data():
     query = "select timestamp close_time"
     query += ' , cast(close as float) as close, close_time as ct'
     query += '  from historical_ETHUSDT'
-    query += "  where timestamp >= '2021-01-01'"
+    query += "  where timestamp >= '2021-09-01'"
     # query += "  and timestamp <= '2021-01-02'"
     query += " order by 1"
     # print(query)
@@ -30,7 +30,7 @@ eth = get_historical_data()
 # Variables for backtest
 position = []
 action = [] # Take action
-invest = 400 # Initial value
+invest = 40 # Initial value
 qty = [] # Qty buy
 counterBuy = 0 # Counter how many ops buy
 counterSell = 0 # Counter how manu ops sell
@@ -45,14 +45,14 @@ feeSell = round((feeSell / 100),9) # Binance fee sell
 fee = 0
 ################STRATEGY PARAMS############################
 ###########################################################
-marginSell = 35 #%
+marginSell = 0.2 #% last 35% - new 0.5 non stop
 marginSell = marginSell / 100 + 1 # Earning from each sell
-timeFrameForceSell = 1152 # 96 hour 96*60/5, 8 days
+timeFrameForceSell = 9999999 # 96 hour 96*60/5, 8 days
 #
 #
-marginBuy = 3 #%
+marginBuy = 0.2 #% last 3% new 0.5 nonstop
 marginBuy = marginBuy / 100 + 1 # Earning from each buy
-timeFrameStopLoss = 288 # 24 hour 24*60/5
+timeFrameStopLoss = 999999 # 24 hour 24*60/5
 ############################################################
 ############################################################
 #
