@@ -218,11 +218,6 @@ def trader(m):
         eth = getTicker()
         for i in df.index:
             bot.send_message(cid, 'Qty: ' +  str(round(df['qty'][i],4)) + "\n Next Ops: " + str(round(df['nextOps'][i],4)) + " \n sellFlag: " + str(df['sellFlag'][i]) 
-            + " \n counterStopLoss: " 
-            + str(df['counterStopLoss'][i]) + " of " +str( params['stoploss'].values) 
-            + " \n counterForceSell: " 
-            + str(df['counterForceSell'][i]) 
-            + " of " + str(params['forcesell'].values)
             + " \n Ops: " 
             + str(df['ops'][i]) 
             + " \n Margin Sell: " + str(params['margingsell'].values) + " %" 
