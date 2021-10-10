@@ -5,12 +5,13 @@ import pandas as pd
 import requests
 import time
 import sendmail as sm
+import trend as trend
 
 api_key = api.Api().api_key
 api_secret = api.Api().api_secret
 client = Client(api_key, api_secret)
-db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
-# db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
+#db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
+db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
 
 print('Trading')
 # Variables for trading
@@ -24,18 +25,24 @@ feeBuy = (feeBuy / 100) # Binance fee when buy
 feeSell = 0.1 # 1%
 feeSell = (feeSell / 100) # Binance fee sell
 fee = 0
+ticker = []
+value = 0
 ################STRATEGY PARAMS############################
 ###########################################################
-params = pd.read_sql('SELECT * FROM parameters',con=db_con)
+def trendResul(trend):
+    result = 'normaltrend'
+    if trend < -4:
+        result = 'downtrend'
+    elif trend > 6:
+        result = 'uptrend'
+    else:
+        result = 'normaltrend'  
+    return result          
 
-marginSell = float(params['margingsell'].values) #%
-marginSell = marginSell / 100 + 1 # Earning from each sell
-ForceSell = float(params['forcesell'].values / 100) # %
-#
-#
-marginBuy = float(params['margingbuy'].values) #%
-marginBuy = marginBuy / 100 + 1 # Earning from each buy
-StopLoss = float(params['stoploss'].values / 100) # %
+marginSell = 0
+ForceSell = 0
+marginBuy = 0
+StopLoss = 0
 ############################################################
 ############################################################
 #
@@ -76,11 +83,17 @@ def update_trader_close_time(close_time):
 def getNextOps():
     df = pd.read_sql('SELECT * FROM trader',con=db_con)
     return df
+
+# Def get trend periods
+def getTrendPeriods():
+    df = pd.read_sql('SELECT * FROM trend',con=db_con)
+    return df    
     
 
 while True:
     # get ticker
     eth = getTicker()
+    periods = getTrendPeriods()
     # Enable o dibale bot
     signal = pd.read_sql('SELECT * FROM t_signal',con=db_con)
     # operations values
@@ -92,6 +105,12 @@ while True:
         # Fisrt buy
         if operations['counterBuy'].values == 0:
             print('First Buy')
+            params = pd.read_sql("SELECT * FROM parameters where trend= 'normaltrend'",con=db_con)
+            marginSell = float(params['margingsell'].values) #%
+            marginSell = marginSell / 100 + 1 # Earning from each sell
+            ForceSell = float(params['forcesell'].values / 100) # %
+            #
+            #
             invest = float(client.get_asset_balance(asset='USDT')['free']) #400 # Initial value
             fee = (invest / float(eth[4][499])) * feeBuy
             qty = round(((invest / float(eth[4][499])) - fee) - 0.0001,4)
@@ -110,6 +129,21 @@ while True:
         # Sell    
         elif float(eth[4][499]) >= float(operations['nextOps'].values) and operations['sellFlag'].values == 1:
             print('Sell')
+            for i in reversed(range(periods['trend'][0])):
+                val = 499 - i
+                value = float(eth[4][val])
+                ticker.append(value)
+            params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
+            marginSell = float(params['margingsell'].values) #%
+            marginSell = marginSell / 100 + 1 # Earning from each sell
+            ForceSell = float(params['forcesell'].values / 100) # %
+            #
+            #
+            marginBuy = float(params['margingbuy'].values) #%
+            marginBuy = marginBuy / 100 + 1 # Earning from each buy
+            StopLoss = float(params['stoploss'].values / 100) # %   
+            #
+            #
             balance_eth = float(client.get_asset_balance(asset='ETH')['free'])
             fee = (balance_eth * feeSell)
             qty = round(((balance_eth * float(eth[4][499])) - fee) /  float(eth[4][499]) - 0.0001 ,4)# Sell amount
@@ -129,6 +163,21 @@ while True:
         # force sell     
         elif float(eth[4][499]) <=  float(operations['nextOps'].values) - (float(operations['nextOps'].values) * ForceSell) and operations['sellFlag'].values == 1:
             print('Force Sell')
+            for i in reversed(range(periods['trend'][0])):
+                val = 499 - i
+                value = float(eth[4][val])
+                ticker.append(value)
+            params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
+            marginSell = float(params['margingsell'].values) #%
+            marginSell = marginSell / 100 + 1 # Earning from each sell
+            ForceSell = float(params['forcesell'].values / 100) # %
+            #
+            #
+            marginBuy = float(params['margingbuy'].values) #%
+            marginBuy = marginBuy / 100 + 1 # Earning from each buy
+            StopLoss = float(params['stoploss'].values / 100) # %   
+            #
+            #
             fee = (balance_eth * feeSell)
             qty = round(((balance_eth * float(eth[4][499])) - fee) /  float(eth[4][499]) - 0.0001 ,4)# Sell amount
             nextOps = round(qty / ((qty / float(eth[4][499]) * marginBuy)),2) # Next buy
@@ -147,6 +196,21 @@ while True:
         # Buy     
         elif float(eth[4][499]) <= float(operations['nextOps'].values) and operations['sellFlag'].values == 0:
             print('Buy')
+            for i in reversed(range(periods['trend'][0])):
+                val = 499 - i
+                value = float(eth[4][val])
+                ticker.append(value)
+            params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
+            marginSell = float(params['margingsell'].values) #%
+            marginSell = marginSell / 100 + 1 # Earning from each sell
+            ForceSell = float(params['forcesell'].values / 100) # %
+            #
+            #
+            marginBuy = float(params['margingbuy'].values) #%
+            marginBuy = marginBuy / 100 + 1 # Earning from each buy
+            StopLoss = float(params['stoploss'].values / 100) # %   
+            #
+            #
             balance_usdt = float(client.get_asset_balance(asset='USDT')['free'])
             fee = (balance_usdt / float(eth[4][499])) * feeBuy
             qty = round(((balance_usdt / float(eth[4][499])) - fee) - 0.0001,4) # Buy amount
@@ -163,7 +227,22 @@ while True:
             qty = 0
             nextOps = 0
         elif float(eth[4][499]) >=  float(operations['nextOps'].values) + (float(operations['nextOps'].values) * StopLoss) and operations['sellFlag'].values == 0:   
-            print('Stop Loss')     
+            print('Stop Loss')
+            for i in reversed(range(periods['trend'][0])):
+                val = 499 - i
+                value = float(eth[4][val])
+                ticker.append(value)
+            params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
+            marginSell = float(params['margingsell'].values) #%
+            marginSell = marginSell / 100 + 1 # Earning from each sell
+            ForceSell = float(params['forcesell'].values / 100) # %
+            #
+            #
+            marginBuy = float(params['margingbuy'].values) #%
+            marginBuy = marginBuy / 100 + 1 # Earning from each buy
+            StopLoss = float(params['stoploss'].values / 100) # %   
+            #
+            #     
             balance_usdt = float(client.get_asset_balance(asset='USDT')['free'])
             fee = (balance_usdt / float(eth[4][499])) * feeBuy
             qty = ((balance_usdt / float(eth[4][499])) - fee) - 0.0001 # Buy amount
