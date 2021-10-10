@@ -12,8 +12,8 @@ API_TOKEN = '1042444870:AAHEuYUbs2YJrGDUEfd1ZjvomJafqCStMKM'
 api_key = api.Api().api_key
 api_secret = api.Api().api_secret
 client = Client(api_key, api_secret)
-db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
-# db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
+# db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
+db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
 
 # Def get next ops
 def getUser():
@@ -46,11 +46,19 @@ def restart_bot():
 
 # Def update ops
 def paramsAction(data):
-    sql = 'insert into parameters values (?,?,?,?)'
+    sql = 'insert into parameters (trend, margingsell, margingbuy, forcesell, stoploss) values (?,?,?,?,?)'
     cur = db_con.cursor()
     cur.execute(sql, data)
     db_con.commit()  
-    db_con.close        
+    db_con.close 
+
+# Def update ops
+def trendTime(data):
+    sql = 'insert into trend (trend) values (?)'
+    cur = db_con.cursor()
+    cur.execute(sql, data)
+    db_con.commit()  
+    db_con.close              
 
 def getTicker():
    url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=5m"
@@ -103,6 +111,7 @@ def command_help(m):
     itemf = types.KeyboardButton('/botstatus')
     itemg = types.KeyboardButton('/resetbot')
     itemh = types.KeyboardButton('/params')
+    itemi = types.KeyboardButton('/trendtime')
     itemd = types.KeyboardButton('/list')
     markup.row(itema)
     markup.row(iteme)
@@ -110,6 +119,7 @@ def command_help(m):
     markup.row(itemc)
     markup.row(itemg)
     markup.row(itemh)
+    markup.row(itemi)
     markup.row(itemf)
     markup.row(itemd)
     bot.send_message(cid, help_text, reply_markup=markup) 
@@ -209,7 +219,7 @@ def trader(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
-    params = pd.read_sql('SELECT * FROM parameters',con=db_con)
+    params = pd.read_sql('SELECT * FROM parameters where trend = (select trend from trader)',con=db_con)
     balance_usdt = float(client.get_asset_balance(asset='USDT')['free'])
     balance_eth = float(client.get_asset_balance(asset='ETH')['free'])
     if  int(user['token'].values) == cid:
@@ -220,6 +230,7 @@ def trader(m):
             bot.send_message(cid, 'Qty: ' +  str(round(df['qty'][i],4)) + "\n Next Ops: " + str(round(df['nextOps'][i],4)) + " \n sellFlag: " + str(df['sellFlag'][i]) 
             + " \n Ops: " 
             + str(df['ops'][i]) 
+            + " \n Trend: " + params['trend'].values 
             + " \n Margin Sell: " + str(params['margingsell'].values) + " %" 
             + " \n Margin buy: " + str(params['margingbuy'].values) + " %"
             + " \n ForceSell: " + str(params['forcesell'].values) + " % / " + str(round(df['nextOps'][i],2) - (round(df['nextOps'][i],2) * params['forcesell'].values /100))
@@ -264,14 +275,14 @@ def params(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
-    bot.send_message(cid, 'Put your params, it will update params for margingsell, margingbuy, forcesell, stoploss. @ Separated. Example: 0.3@0.3@99999999@99999999', parse_mode='Markdown', reply_markup=markup)                        
+    bot.send_message(cid, 'Put your params, it will update params for trend(normaltrend,uptrend and downtrend), margingsell, margingbuy, forcesell, and stoploss. @ Separated. Example: normaltrend@0.3@0.3@99999999@99999999', parse_mode='Markdown', reply_markup=markup)                        
     bot.register_next_step_handler_by_chat_id(cid, paramsActions)
 
 def paramsActions(m):
     cid = m.chat.id
     valor = m.text
     global gdata
-    gdata = (valor.split('@')[0],valor.split('@')[1],valor.split('@')[2],valor.split('@')[3])
+    gdata = (valor.split('@')[0],valor.split('@')[1],valor.split('@')[2],valor.split('@')[3],valor.split('@')[4])
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
@@ -279,7 +290,31 @@ def paramsActions(m):
         paramsAction(gdata)
         bot.send_message(cid, 'Params has changed...done !!', parse_mode='Markdown', reply_markup=markup)
     else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)     
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)
+
+
+@bot.message_handler(commands=['trendtime'])
+def params(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    bot.send_message(cid, 'Put your time and integer time example (2,3,4,5,6,7,8,9,10,etc), it will update trendtime function', parse_mode='Markdown', reply_markup=markup)                        
+    bot.register_next_step_handler_by_chat_id(cid, trendtimeActions)
+
+def trendtimeActions(m):
+    cid = m.chat.id
+    valor = m.text
+    global gdata
+    gdata = (valor)
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    if  int(user['token'].values) == cid:
+        trendTime(gdata)
+        bot.send_message(cid, 'Trend time has changed...done !!', parse_mode='Markdown', reply_markup=markup)
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)              
 
 # default handler for every other text
 @bot.message_handler(func=lambda message: True, content_types=['text'])

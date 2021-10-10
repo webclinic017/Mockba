@@ -10,8 +10,8 @@ import trend as trend
 api_key = api.Api().api_key
 api_secret = api.Api().api_secret
 client = Client(api_key, api_secret)
-#db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
-db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
+db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
+# db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
 
 print('Trading')
 # Variables for trading
@@ -59,8 +59,8 @@ def getTicker():
 
 # Def insert last data ops
 def act_trader_nextOps(data):
-    sql = ''' INSERT INTO trader(qty,nextOps,sellFlag,counterStopLoss,counterForceSell,counterBuy,ops,close_time)
-              VALUES(?,?,?,?,?,?,?,?) '''
+    sql = ''' INSERT INTO trader(qty,nextOps,sellFlag,counterStopLoss,counterForceSell,counterBuy,ops,close_time,trend)
+              VALUES(?,?,?,?,?,?,?,?,?) '''
     cur = db_con.cursor()
     cur.execute(sql, data)
     db_con.commit()
@@ -117,7 +117,7 @@ while True:
             nextOps = round(float(eth[4][499]) * marginSell,2)
             sellFlag = 1
             counterForceSell = 1
-            data = (qty,nextOps,sellFlag,counterStopLoss,counterForceSell,1,'buy',str(eth[0][499]))
+            data = (qty,nextOps,sellFlag,counterStopLoss,counterForceSell,1,'buy',str(eth[0][499]),'normaltrend')
             client.order_market_buy(symbol="ETHUSDT", quantity=qty)
             act_trader_nextOps(data)
             sm.sendMail('First Buy')
@@ -151,7 +151,7 @@ while True:
             print(nextOps)
             counterStopLoss = 1
             sellFlag = 0
-            data = (float(qty),float(nextOps),sellFlag,counterStopLoss,counterForceSell,1,'sell',str(eth[0][499]))
+            data = (float(qty),float(nextOps),sellFlag,counterStopLoss,counterForceSell,1,'sell',str(eth[0][499]),trendResul(trend.trend(ticker)))
             client.order_market_sell(symbol="ETHUSDT", quantity=qty)
             act_trader_nextOps(data)
             sm.sendMail('Sell')
@@ -184,7 +184,7 @@ while True:
             print(round(qty,4))
             counterStopLoss = 1 
             sellFlag = 0
-            data = (float(qty),float(nextOps),sellFlag,counterStopLoss,counterForceSell,1,'forceSell',str(eth[0][499]))
+            data = (float(qty),float(nextOps),sellFlag,counterStopLoss,counterForceSell,1,'forceSell',str(eth[0][499]),trendResul(trend.trend(ticker)))
             client.order_market_sell(symbol="ETHUSDT", quantity=qty)
             act_trader_nextOps(data)
             sm.sendMail('Force Sell')
@@ -217,7 +217,7 @@ while True:
             nextOps = round(float(eth[4][499]) * marginSell,2)
             sellFlag = 1
             counterForceSell = 1 
-            data = (float(qty),float(nextOps),sellFlag,counterStopLoss,counterForceSell,1,'buy',str(eth[0][499]))
+            data = (float(qty),float(nextOps),sellFlag,counterStopLoss,counterForceSell,1,'buy',str(eth[0][499]),trendResul(trend.trend(ticker)))
             client.order_market_buy(symbol="ETHUSDT", quantity=round(qty,4))
             act_trader_nextOps(data)
             sm.sendMail('Buy')
@@ -249,7 +249,7 @@ while True:
             nextOps = float(eth[4][499]) * marginSell
             sellFlag = 1
             counterForceSell = 1 
-            data = (float(qty),float(nextOps),sellFlag,counterStopLoss,counterForceSell,1,'stopLoss',str(eth[0][499]))  
+            data = (float(qty),float(nextOps),sellFlag,counterStopLoss,counterForceSell,1,'stopLoss',str(eth[0][499]),trendResul(trend.trend(ticker)))  
             client.order_market_buy(symbol="ETHUSDT", quantity=round(qty,4))
             act_trader_nextOps(data)
             sm.sendMail('Stop Loss')
