@@ -12,24 +12,20 @@ CREATE TABLE IF NOT EXISTS "trader" (
 	"counterForceSell"	INTEGER NOT NULL,
 	"counterBuy"	INTEGER NOT NULL,
 	"ops"	TEXT NOT NULL,
-	"close_time"	INTEGER NOT NULL
+	"close_time"	INTEGER NOT NULL,
+	"trend"	TEXT
 );
 CREATE TABLE IF NOT EXISTS "t_signal" (
 	"status"	INTEGER NOT NULL
 );
-CREATE TABLE IF NOT EXISTS "trader_history" (
-	"id"	INTEGER NOT NULL,
-	"qty"	REAL NOT NULL,
-	"nextOps"	REAL NOT NULL,
-	"ops"	TEXT NOT NULL,
-	"close_time"	INTEGER NOT NULL,
-	PRIMARY KEY("id" AUTOINCREMENT)
-);
 CREATE TABLE IF NOT EXISTS "parameters" (
-	"margingsell"	NUMERIC,
-	"margingbuy"	NUMERIC,
-	"forcesell"	INTEGER,
-	"stoploss"	INTEGER
+	"trend"	TEXT NOT NULL,
+	"margingsell"	NUMERIC NOT NULL,
+	"margingbuy"	NUMERIC NOT NULL,
+	"forcesell"	INTEGER NOT NULL,
+	"stoploss"	INTEGER NOT NULL,
+	"id"	INTEGER NOT NULL,
+	PRIMARY KEY("id" AUTOINCREMENT)
 );
 CREATE TABLE IF NOT EXISTS "historical_ETHUSDT" (
 	"timestamp"	TEXT,
@@ -45,6 +41,20 @@ CREATE TABLE IF NOT EXISTS "historical_ETHUSDT" (
 	"tb_quote_av"	REAL,
 	"ignore"	REAL
 );
+CREATE TABLE IF NOT EXISTS "trend" (
+	"id"	INTEGER NOT NULL,
+	"trend"	INTEGER NOT NULL,
+	PRIMARY KEY("id" AUTOINCREMENT)
+);
+CREATE TABLE IF NOT EXISTS "trader_history" (
+	"id"	INTEGER NOT NULL,
+	"qty"	REAL NOT NULL,
+	"nextOps"	REAL NOT NULL,
+	"ops"	TEXT NOT NULL,
+	"close_time"	INTEGER NOT NULL,
+	"trend"	TEXT,
+	PRIMARY KEY("id" AUTOINCREMENT)
+);
 CREATE INDEX IF NOT EXISTS "ix_historical_ETHUSDT_timestamp" ON "historical_ETHUSDT" (
 	"timestamp"
 );
@@ -56,13 +66,13 @@ end;
 CREATE TRIGGER trg_trader_history after insert on trader 
 BEGIN 
  insert into trader_history
-  (qty,nextOps,ops,close_time)
+  (qty,nextOps,ops,close_time,trend)
   VALUES
-  (new.qty,new.nextOps,new.ops,new.close_time);
+  (new.qty,new.nextOps,new.ops,new.close_time,new.trend);
 end;
-CREATE TRIGGER trg_paramters
-BEFORE insert on parameters
+CREATE TRIGGER trg_trend
+BEFORE insert on trader
 BEGIN
-delete from parameters;
+delete from trend;
 end;
 COMMIT;
