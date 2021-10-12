@@ -12,8 +12,8 @@ import trend as tr
 
 # Telegram Bot
 API_TOKEN = '2096372558:AAFZtSi_8wHrfEQjJatdnYhDtEgkm8TaipM'
-# db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
-db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
+db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
+# db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
 
 # Def get next ops
 def getUser():
@@ -54,16 +54,16 @@ user = getUser()
 ########################################################################################################
 # only used for console output now
 
-def listener(messages):
-    """
-    When new messages arrive TeleBot will call this function.
-    """
-    for m in messages:
-        if m.content_type == 'text':
-            # print the sent message to the console
-            print(str(m.chat.first_name) + " [" + str(m.chat.id) + "]: " + m.text)
+# def listener(messages):
+ #   """
+ #   When new messages arrive TeleBot will call this function.
+ #   """
+#    for m in messages:
+#        if m.content_type == 'text':
+#            # print the sent message to the console
+#            print(str(m.chat.first_name) + " [" + str(m.chat.id) + "]: " + m.text)
 
-    bot.set_update_listener(listener)  # register listener            
+#    bot.set_update_listener(listener)  # register listener            
 
 
 # Comando inicio
@@ -72,7 +72,7 @@ def command_start(m):
     cid = m.chat.id
     nom = m.chat.first_name
     bot.send_message(cid,
-                    "Welcome to Mockba " + str(nom))
+                    "Welcome to Mockba, with this bot you can, backtest, load hitorical data, change parameter for backtest, parameters for trend, list trend, list parameters and check real time trend " + str(nom))
     command_help(m)
 
 
