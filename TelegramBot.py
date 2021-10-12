@@ -12,8 +12,8 @@ API_TOKEN = '1042444870:AAHEuYUbs2YJrGDUEfd1ZjvomJafqCStMKM'
 api_key = api.Api().api_key
 api_secret = api.Api().api_secret
 client = Client(api_key, api_secret)
-# db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
-db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
+db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
+# db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
 
 # Def get next ops
 def getUser():
@@ -38,7 +38,7 @@ def disable_bot():
 
 # Def update ops
 def restart_bot():
-    sql = 'insert into trader values (0,0,0,0,0,0,0,0)'
+    sql = "insert into trader values (0,0,0,0,0,0,0,0,'normaltrend')"
     cur = db_con.cursor()
     cur.execute(sql)
     db_con.commit()  
@@ -54,7 +54,7 @@ def paramsAction(data):
 
 # Def update ops
 def trendTime(data):
-    sql = 'insert into trend (trend) values (?)'
+    sql = 'insert into trend (trend,downtrend,uptrend) values (?,?,?)'
     cur = db_con.cursor()
     cur.execute(sql, data)
     db_con.commit()  
@@ -146,9 +146,9 @@ def dautobot(m):
     markup.row(itemd)
     if  int(user['token'].values) == cid:
         disable_bot()
-        bot.send_message(cid, "Bot disabled....", parse_mode='Markdown', reply_markup=markup)
+        bot.send_message(cid, "Bot disabled....", parse_mode='Markdown')
     else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup) 
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown') 
 
 @bot.message_handler(commands=['tradehistory'])
 def years(m):
@@ -210,7 +210,7 @@ def trade(m):
         for i in df.index:
             bot.send_message(cid, 'Close time: ' +  str(df['close_time'][i]) + "\n Next Ops: " + str(round(df['nextOps'][i],4)) + " \n Op: " + str(df['ops'][i]) + " \n Qty: " + str(round(df['qty'][i],4)), parse_mode='Markdown', reply_markup=markup)
     else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')
 
 @bot.message_handler(commands=['trader'])
 def trader(m):
@@ -237,9 +237,9 @@ def trader(m):
             + " \n StopLoss: " + str(params['stoploss'].values) + " % / " + str(round(df['nextOps'][i],2) + (round(df['nextOps'][i],2) * params['stoploss'].values /100))
             + " \n Ticker: " + str(eth[4][499]) 
             + " \n\n Balance Eth: " + str(round(balance_eth,4)) + " \n Balance USDT: " 
-            + str(round(balance_usdt,2)), parse_mode='Markdown', reply_markup=markup)
+            + str(round(balance_usdt,2)), parse_mode='Markdown')
     else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')
 
 @bot.message_handler(commands=['botstatus'])
 def trader(m):
@@ -252,9 +252,9 @@ def trader(m):
         query  = "select case when status = '1' then 'Bot enabled' else 'Bot disabled' end status from t_signal"
         df = pd.read_sql(query,con=db_con)
         for i in df.index:
-            bot.send_message(cid, 'Status: ' +  str(df['status'][i]), parse_mode='Markdown', reply_markup=markup)
+            bot.send_message(cid, 'Status: ' +  str(df['status'][i]), parse_mode='Markdown')
     else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)  
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')  
 
 @bot.message_handler(commands=['resetbot'])
 def trader(m):
@@ -265,9 +265,9 @@ def trader(m):
     markup.row(itemd)
     if  int(user['token'].values) == cid:
         restart_bot()
-        bot.send_message(cid, 'All operations start from cero...done !!', parse_mode='Markdown', reply_markup=markup)
+        bot.send_message(cid, 'All operations start from cero...done !!', parse_mode='Markdown')
     else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup) 
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown') 
 
 @bot.message_handler(commands=['params'])
 def params(m):
@@ -288,9 +288,9 @@ def paramsActions(m):
     markup.row(itemd)
     if  int(user['token'].values) == cid:
         paramsAction(gdata)
-        bot.send_message(cid, 'Params has changed...done !!', parse_mode='Markdown', reply_markup=markup)
+        bot.send_message(cid, 'Params has changed...done !!', parse_mode='Markdown')
     else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')
 
 
 @bot.message_handler(commands=['trendtime'])
@@ -299,22 +299,22 @@ def params(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
-    bot.send_message(cid, 'Put your time and integer time example (2,3,4,5,6,7,8,9,10,etc), it will update trendtime function', parse_mode='Markdown', reply_markup=markup)                        
+    bot.send_message(cid, 'Put your time and integer time (2,3,4,5,6,7,8,9,10,etc), downtrend and uptrend @ separated, example 6@-4@6 , it will update trendtime function', parse_mode='Markdown', reply_markup=markup)                        
     bot.register_next_step_handler_by_chat_id(cid, trendtimeActions)
 
 def trendtimeActions(m):
     cid = m.chat.id
     valor = m.text
     global gdata
-    gdata = (valor)
+    gdata = (valor.split('@')[0],valor.split('@')[1],valor.split('@')[2])
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     if  int(user['token'].values) == cid:
         trendTime(gdata)
-        bot.send_message(cid, 'Trend time has changed...done !!', parse_mode='Markdown', reply_markup=markup)
+        bot.send_message(cid, 'Trend time has changed...done !!', parse_mode='Markdown')
     else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)              
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')              
 
 # default handler for every other text
 @bot.message_handler(func=lambda message: True, content_types=['text'])

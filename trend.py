@@ -22,7 +22,6 @@ def trend(data):
     # print(slope)
     return slope
 
-
 '''
 url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=5m"
 r = requests.get(url)
