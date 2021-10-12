@@ -1,28 +1,27 @@
 import pandas as pd
 import numpy as np
 from math import floor
-from termcolor import colored as cl
-import matplotlib.pyplot as plt
 from decimal import *
 import sqlite3
 import trend as trend
 # plt.rcParams['figure.figsize'] = (20, 10)
 # plt.style.use('fivethirtyeight')
 
-def backtest():
-    # db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
-    db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
+def backtest(values):
+    db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
+    # db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
 
 
     # Retrieving historical data from database
     def get_historical_data():
         # Conexión a base de datos
-        db_con = sqlite3.connect('storage/mockbabacktest.db')
+        # db_con = sqlite3.connect('storage/mockbabacktest.db')
+        db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
         query = "select timestamp close_time"
         query += ' , cast(close as float) as close, close_time as ct'
-        query += '  from historical_ETHUSDT'
-        query += "  where timestamp >= '2021-09-01'"
-        # query += "  and timestamp <= '2021-01-02'"
+        query += '  from historical_'+ values.split('@')[2]
+        query += "  where timestamp >= '" + values.split('@')[0] + "'"
+        query += "  and timestamp <= '" + values.split('@')[1] + "'"
         query += " order by 1"
         # print(query)
         df = pd.read_sql(query, con=db_con, index_col='close_time')
@@ -338,8 +337,8 @@ def backtest():
     print("The strategy")
     # strategy = strategy[strategy['macd_action'] != '0']
     # print(strategy)
-    strategy.to_excel("ETHUSDT-strategy.xlsx")
+    strategy.to_excel(values.split('@')[2] + "-strategy.xlsx")
 
     print("End")
 
-backtest()    
+#backtest('2021-09-01@2021-10-31@ETHUSDT')

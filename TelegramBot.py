@@ -230,11 +230,11 @@ def trader(m):
             bot.send_message(cid, 'Qty: ' +  str(round(df['qty'][i],4)) + "\n Next Ops: " + str(round(df['nextOps'][i],4)) + " \n sellFlag: " + str(df['sellFlag'][i]) 
             + " \n Ops: " 
             + str(df['ops'][i]) 
-            + " \n Trend: " + params['trend'].values 
-            + " \n Margin Sell: " + str(params['margingsell'].values) + " %" 
-            + " \n Margin buy: " + str(params['margingbuy'].values) + " %"
-            + " \n ForceSell: " + str(params['forcesell'].values) + " % / " + str(round(df['nextOps'][i],2) - (round(df['nextOps'][i],2) * params['forcesell'].values /100))
-            + " \n StopLoss: " + str(params['stoploss'].values) + " % / " + str(round(df['nextOps'][i],2) + (round(df['nextOps'][i],2) * params['stoploss'].values /100))
+            + " \n Trend: " + params['trend'][0] 
+            + " \n Margin Sell: " + str(params['margingsell'][0]) + " %" 
+            + " \n Margin buy: " + str(params['margingbuy'][0]) + " %"
+            + " \n ForceSell: " + str(params['forcesell'][0]) + " % / " + str(round(df['nextOps'][i],2) - (round(df['nextOps'][i],2) * params['forcesell'].values /100))
+            + " \n StopLoss: " + str(params['stoploss'][0]) + " % / " + str(round(df['nextOps'][i],2) + (round(df['nextOps'][i],2) * params['stoploss'].values /100))
             + " \n Ticker: " + str(eth[4][499]) 
             + " \n\n Balance Eth: " + str(round(balance_eth,4)) + " \n Balance USDT: " 
             + str(round(balance_usdt,2)), parse_mode='Markdown')

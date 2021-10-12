@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import requests
+import json
 from requests.api import get
 
 
@@ -22,22 +23,23 @@ def trend(data):
     # print(slope)
     return slope
 
-'''
-url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=5m"
-r = requests.get(url)
-df = pd.DataFrame(r.json()) 
-eth  = df
+def trendBot():
+    url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=5m"
+    r = requests.get(url)
+    df = pd.DataFrame(r.json()) 
+    eth  = df
 
 
-#Sample Dataframe
-ticker = []
-value = 0
+    #Sample Dataframe
+    ticker = []
+    value = 0
 
-for i in reversed(range(6)):
-    val = 499 - i # last six periods (5 minutes each, total 30 minutes)
-    value = float(eth[4][val])
-    ticker.append(value)
-print(ticker)
+    for i in reversed(range(6)):
+        val = 499 - i # last six periods (5 minutes each, total 30 minutes)
+        value = float(eth[4][val])
+        ticker.append(value)
+    print(ticker)
 
-print(trend(ticker))
-'''
+    return trend(ticker)
+
+print(trendBot())
