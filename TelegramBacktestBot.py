@@ -12,7 +12,9 @@ import trend as tr
 
 # Telegram Bot
 API_TOKEN = '2096372558:AAFZtSi_8wHrfEQjJatdnYhDtEgkm8TaipM'
+# API_TOKEN = '2062206747:AAErYHIXKE_yl6IpfeVbVFcgnazltJLHMmM' #Ivanex
 db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
+# db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False) #ivanex
 # db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
 
 # Def get next ops
@@ -72,7 +74,7 @@ def command_start(m):
     cid = m.chat.id
     nom = m.chat.first_name
     bot.send_message(cid,
-                    "Welcome to Mockba, with this bot you can, backtest, load hitorical data, change parameter for backtest, parameters for trend, list trend, list parameters and check real time trend " + str(nom))
+                    "Welcome to Mockba " + str(nom) + '-' + str(cid) + ", with this bot you can, backtest, load hitorical data, change parameter for backtest, parameters for trend, list trend, list parameters and check real time trend " + str(nom))
     command_help(m)
 
 
@@ -82,18 +84,18 @@ def command_help(m):
     help_text = "Available options."
     markup = types.ReplyKeyboardMarkup()
     iteme = types.KeyboardButton('/backtest')
-    itemf = types.KeyboardButton('/trend')
+    itemf = types.KeyboardButton('/listtrendmarket')
     itemh = types.KeyboardButton('/params')
     itemi = types.KeyboardButton('/trendtime')
     itemj = types.KeyboardButton('/gethistorical')
     itema = types.KeyboardButton('/listparams')
-    itemb = types.KeyboardButton('/listtrend')
+    itemb = types.KeyboardButton('/listtrendparams')
     itemd = types.KeyboardButton('/list')
     markup.row(iteme)
     markup.row(itemh)
     markup.row(itemi)
-    markup.row(itemf)
     markup.row(itemj)
+    markup.row(itemf)
     markup.row(itema)
     markup.row(itemb)
     markup.row(itemd)
@@ -115,7 +117,7 @@ def listparams(m):
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')     
 
-@bot.message_handler(commands=['listtrend'])
+@bot.message_handler(commands=['listtrendparams'])
 def listtrend(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
@@ -136,7 +138,7 @@ def params(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
-    bot.send_message(cid, 'Put your params, init date, end data and ticker, @ separated, example 2021-09-01@2021-10-31@ETHUSDT', parse_mode='Markdown', reply_markup=markup)
+    bot.send_message(cid, 'Put your params, init date, end data, ticker and invest, @ separated, example 2021-09-01@2021-10-31@ETHUSDT@400', parse_mode='Markdown', reply_markup=markup)
     bot.register_next_step_handler_by_chat_id(cid, backtestActions)    
 
 
@@ -147,7 +149,7 @@ def backtestActions(m):
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     if  int(user['token'].values) == cid:
-        bot.send_message(cid, 'Backtesting, take some time....')
+        bot.send_message(cid, 'Backtesting, this can take some time....')
         backtradereth2.backtest(valor)
         bot.send_message(cid, 'Backtest ready, now you can download the excel file !!', parse_mode='Markdown')
         file = open(valor.split('@')[2]+'-strategy.xlsx','rb')
@@ -229,15 +231,15 @@ def trendtimeActions(m):
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown') 
 
-@bot.message_handler(commands=['trend'])
+@bot.message_handler(commands=['listtrendmarket'])
 def trend(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     if  int(user['token'].values) == cid:
-        bot.send_message(cid, 'Trend in real time ' + str(tr.trendBot()), parse_mode='Markdown', reply_markup=markup)                        
-        bot.register_next_step_handler_by_chat_id(cid, trendtimeActions) 
+        trendParams = pd.read_sql("SELECT * FROM trend",con=db_con)
+        bot.send_message(cid, 'Trend in real time ' + str(tr.trendBot(trendParams['trend'][0])), parse_mode='Markdown', reply_markup=markup)                        
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         
 

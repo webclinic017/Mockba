@@ -9,6 +9,7 @@ import trend as trend
 
 def backtest(values):
     db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
+    #db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False) #ivanex
     # db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
 
 
@@ -17,6 +18,7 @@ def backtest(values):
         # Conexión a base de datos
         # db_con = sqlite3.connect('storage/mockbabacktest.db')
         db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
+        # db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False) #ivanex
         query = "select timestamp close_time"
         query += ' , cast(close as float) as close, close_time as ct'
         query += '  from historical_'+ values.split('@')[2]
@@ -34,7 +36,7 @@ def backtest(values):
     # Variables for backtest
     position = []
     action = [] # Take action
-    invest = 50 # Initial value
+    invest = float(values.split('@')[3]) # Initial value
     qty = [] # Qty buy
     counterBuy = 0 # Counter how many ops buy
     counterSell = 0 # Counter how manu ops sell

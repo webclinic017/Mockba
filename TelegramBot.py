@@ -6,6 +6,8 @@ from telebot import types
 import sqlite3
 import pandas as pd
 from binance.client import Client
+import trend as tr
+
 
 # Telegram Bot
 API_TOKEN = '1042444870:AAHEuYUbs2YJrGDUEfd1ZjvomJafqCStMKM'
@@ -108,6 +110,9 @@ def command_help(m):
     itemb = types.KeyboardButton('/enablebot')
     itemc = types.KeyboardButton('/disablebot')
     iteme = types.KeyboardButton('/trader')
+    itemj = types.KeyboardButton('/listtrendmarket')
+    itemk = types.KeyboardButton('/listparams')
+    iteml = types.KeyboardButton('/listtrendparams')
     itemf = types.KeyboardButton('/botstatus')
     itemg = types.KeyboardButton('/resetbot')
     itemh = types.KeyboardButton('/params')
@@ -116,6 +121,9 @@ def command_help(m):
     markup.row(itema)
     markup.row(iteme)
     markup.row(itemb)
+    markup.row(itemj)
+    markup.row(itemk)
+    markup.row(iteml)
     markup.row(itemc)
     markup.row(itemg)
     markup.row(itemh)
@@ -125,6 +133,50 @@ def command_help(m):
     bot.send_message(cid, help_text, reply_markup=markup) 
 
 
+
+
+@bot.message_handler(commands=['listparams'])
+def listparams(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    if  int(user['token'].values) == cid:
+        df = pd.read_sql('SELECT * FROM parameters order by id',con=db_con)
+
+        for i in df.index:
+            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nMargingSell: *" + str(df['margingsell'][i]) + "\n*MargingBuy: *" + str(df['margingbuy'][i]) + "\n*ForceSell: *" + str(df['forcesell'][i]) + "\n*StopLoss: *" + str(df['stoploss'][i]) , parse_mode='Markdown')
+        bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')     
+
+@bot.message_handler(commands=['listtrendparams'])
+def listtrend(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    if  int(user['token'].values) == cid:
+        df = pd.read_sql('SELECT * FROM trend order by id',con=db_con)
+        for i in df.index:
+            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nDowntrend: *" + str(df['downtrend'][i]) + "\n*Uptrend: *" + str(df['uptrend'][i]), parse_mode='Markdown')
+        bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')        
+
+
+@bot.message_handler(commands=['listtrendmarket'])
+def trend(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    if  int(user['token'].values) == cid:
+        trendParams = pd.read_sql("SELECT * FROM trend",con=db_con)
+        bot.send_message(cid, 'Trend in real time ' + str(tr.trendBot(trendParams['trend'][0])), parse_mode='Markdown', reply_markup=markup)                    
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown') 
+        
 @bot.message_handler(commands=['enablebot'])
 def actautobot(m):
     cid = m.chat.id
@@ -242,7 +294,7 @@ def trader(m):
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')
 
 @bot.message_handler(commands=['botstatus'])
-def trader(m):
+def botstatus(m):
     cid = m.chat.id
     global gyear
     markup = types.ReplyKeyboardMarkup()
@@ -257,7 +309,7 @@ def trader(m):
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')  
 
 @bot.message_handler(commands=['resetbot'])
-def trader(m):
+def resetbot(m):
     cid = m.chat.id
     global gyear
     markup = types.ReplyKeyboardMarkup()
@@ -294,7 +346,7 @@ def paramsActions(m):
 
 
 @bot.message_handler(commands=['trendtime'])
-def params(m):
+def trendtime(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')

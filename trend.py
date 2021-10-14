@@ -23,7 +23,7 @@ def trend(data):
     # print(slope)
     return slope
 
-def trendBot():
+def trendBot(vlrange):
     url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=5m"
     r = requests.get(url)
     df = pd.DataFrame(r.json()) 
@@ -34,7 +34,7 @@ def trendBot():
     ticker = []
     value = 0
 
-    for i in reversed(range(6)):
+    for i in reversed(range(int(vlrange))):
         val = 499 - i # last six periods (5 minutes each, total 30 minutes)
         value = float(eth[4][val])
         ticker.append(value)
@@ -42,4 +42,4 @@ def trendBot():
 
     return trend(ticker)
 
-print(trendBot())
+# print(trendBot(12))

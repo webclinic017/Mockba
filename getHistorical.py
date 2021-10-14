@@ -20,8 +20,9 @@ binance_client = Client(api_key=binance_api_key, api_secret=binance_api_secret)
 
 
 # Database conection
-# db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
+#db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
 # db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
+# db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False)
 
 ### FUNCTIONS
 def minutes_of_new_data(symbol, kline_size, data, source):
@@ -73,4 +74,4 @@ def get_all_binance(symbol, kline_size, save=False):
     print('All caught up..!')
     return data_df
 
-# get_all_binance("ETHUSDT", "5m", save=True)    
+# get_all_binance("BTCUSDT", "5m", save=True)    

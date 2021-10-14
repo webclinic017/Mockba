@@ -1,6 +1,5 @@
 from binance.client import Client
 import apis as api
-import time
 
 api_key = api.Api().api_key
 api_secret = api.Api().api_secret
