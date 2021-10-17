@@ -11,11 +11,11 @@ import getHistorical
 import trend as tr
 
 # Telegram Bot
-API_TOKEN = '2096372558:AAFZtSi_8wHrfEQjJatdnYhDtEgkm8TaipM'
-# API_TOKEN = '2062206747:AAErYHIXKE_yl6IpfeVbVFcgnazltJLHMmM' #Ivanex
-db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
-# db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False) #ivanex
-# db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
+#API_TOKEN = '2096372558:AAFZtSi_8wHrfEQjJatdnYhDtEgkm8TaipM'
+API_TOKEN = '2062206747:AAErYHIXKE_yl6IpfeVbVFcgnazltJLHMmM' #Ivanex
+#db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
+db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False) #ivanex
+#db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
 
 # Def get next ops
 def getUser():
@@ -150,7 +150,9 @@ def backtestActions(m):
     markup.row(itemd)
     if  int(user['token'].values) == cid:
         bot.send_message(cid, 'Backtesting, this can take some time....')
+        backtradereth2.act_trader()
         backtradereth2.backtest(valor)
+        backtradereth2.act_trader()
         bot.send_message(cid, 'Backtest ready, now you can download the excel file !!', parse_mode='Markdown')
         file = open(valor.split('@')[2]+'-strategy.xlsx','rb')
         print(file)

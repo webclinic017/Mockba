@@ -1,4 +1,4 @@
-from os import defpath
+from os import defpath, error
 import telebot
 import apis as api
 import requests
@@ -254,13 +254,17 @@ def trade(m):
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     if  int(user['token'].values) == cid:
-        query  = "select qty, nextOps, ops, STRFTIME('%d/%m/%Y %H:%M',datetime(close_time/1000, 'unixepoch')) close_time from trader_history"
+        query  = "select qty, nextOpsVal, nextOps, sellFlag, ops, price, margin, STRFTIME('%d/%m/%Y %H:%M',datetime(close_time/1000, 'unixepoch')) close_time, trend from trader_history"
         query += " where STRFTIME('%Y',datetime(close_time/1000, 'unixepoch')) = '" + gyear + "'"
         query += " and STRFTIME('%m',datetime(close_time/1000, 'unixepoch')) = '" + m.text + "'"
         df = pd.read_sql(query,con=db_con)
-        bot.send_message(cid, 'Tranding history')
-        for i in df.index:
-            bot.send_message(cid, 'Close time: ' +  str(df['close_time'][i]) + "\n Next Ops: " + str(round(df['nextOps'][i],4)) + " \n Op: " + str(df['ops'][i]) + " \n Qty: " + str(round(df['qty'][i],4)), parse_mode='Markdown', reply_markup=markup)
+        bot.send_message(cid, 'Generating file......')
+        df.to_csv("History-" + gyear + '-' + m.text + '.csv',  index=False)
+        file = open("History-" + gyear + '-' + m.text + '.csv')
+        print(file)
+        bot.send_document(cid,file)
+        # for i in df.index:
+         #   bot.send_message(cid, 'Close time: ' +  str(df['close_time'][i]) + "\n Next Ops: " + str(round(df['nextOps'][i],4)) + " \n Op: " + str(df['ops'][i]) + " \n Qty: " + str(round(df['qty'][i],4)), parse_mode='Markdown', reply_markup=markup)
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')
 
@@ -279,9 +283,11 @@ def trader(m):
         df = pd.read_sql(query,con=db_con)
         eth = getTicker()
         for i in df.index:
-            bot.send_message(cid, 'Qty: ' +  str(round(df['qty'][i],4)) + "\n Next Ops: " + str(round(df['nextOps'][i],4)) + " \n sellFlag: " + str(df['sellFlag'][i]) 
-            + " \n Ops: " 
-            + str(df['ops'][i]) 
+            bot.send_message(cid, 'Qty: ' +  str(round(df['qty'][i],4)) 
+            + "\n Next Ops Value: " + str(round(df['nextOpsVal'][i],4)) 
+            + "\n Next Ops: " + str(round(df['nextOps'][i],4)) 
+            + " \n sellFlag: " + str(df['sellFlag'][i]) 
+            + " \n Ops: "      + str(df['ops'][i]) 
             + " \n Trend: " + params['trend'][0] 
             + " \n Margin Sell: " + str(params['margingsell'][0]) + " %" 
             + " \n Margin buy: " + str(params['margingbuy'][0]) + " %"
