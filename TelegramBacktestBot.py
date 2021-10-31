@@ -9,6 +9,7 @@ from binance.client import Client
 import backtradereth2
 import getHistorical
 import trend as tr
+from datetime import datetime
 
 # Telegram Bot
 #API_TOKEN = '2096372558:AAFZtSi_8wHrfEQjJatdnYhDtEgkm8TaipM'
@@ -138,7 +139,7 @@ def params(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
-    bot.send_message(cid, 'Put your params, init date, end data, ticker and invest, @ separated, example 2021-09-01@2021-10-31@ETHUSDT@400', parse_mode='Markdown', reply_markup=markup)
+    bot.send_message(cid, 'Put your params, init date, end data, ticker and invest, @ separated, example 2021-09-01@2021-10-31@ETHUSDT1d@400', parse_mode='Markdown', reply_markup=markup)
     bot.register_next_step_handler_by_chat_id(cid, backtestActions)    
 
 
@@ -149,10 +150,10 @@ def backtestActions(m):
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     if  int(user['token'].values) == cid:
+        start = datetime.now()
         bot.send_message(cid, 'Backtesting, this can take some time....')
-        backtradereth2.act_trader()
-        backtradereth2.backtest(valor)
-        backtradereth2.act_trader()
+        backtradereth2.backtest(valor)  
+        bot.send_message(cid, 'Execution time  ' + str(datetime.now() - start))
         bot.send_message(cid, 'Backtest ready, now you can download the excel file !!', parse_mode='Markdown')
         file = open(valor.split('@')[2]+'-strategy.xlsx','rb')
         print(file)
@@ -203,7 +204,7 @@ def gethistorical(m):
         getHistorical.get_all_binance(valor.split('@')[0], valor.split('@')[1], save=True)
         data = pd.read_csv (valor.split('@')[0]+'-'+valor.split('@')[1]+'-data.csv') 
         df = pd.DataFrame(data)
-        df.to_sql('historical_' + valor.split('@')[0], if_exists="replace",
+        df.to_sql('historical_' + valor.split('@')[0]+valor.split('@')[1], if_exists="replace",
              con=db_con, index=True)
         bot.send_message(cid, 'Done !!', parse_mode='Markdown')
     else:    

@@ -3,24 +3,23 @@ import numpy as np
 from math import floor
 from decimal import *
 import sqlite3
-import multiprocessing
-from multiprocessing import Pool
 import trend as trend
+from datetime import datetime
+
 # plt.rcParams['figure.figsize'] = (20, 10)
 # plt.style.use('fivethirtyeight')
-#db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
+# Def act trader
+#b_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
 db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False) #ivanex
 #db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
 
-# Def act trader
 def act_trader():
     sql = "INSERT INTO trader values (0,0,0,0,0,0,0,0)"
     cur = db_con.cursor()
     cur.execute(sql)
-    db_con.commit()  
+    db_con.commit()
 
 def backtest(values):
-
     # Retrieving historical data from database
     def get_historical_data():
         query = "select timestamp close_time"
@@ -29,7 +28,7 @@ def backtest(values):
         query += "  where timestamp >= '" + values.split('@')[0] + "'"
         query += "  and timestamp <= '" + values.split('@')[1] + "'"
         query += " order by 1"
-        # print(query)
+        #print(query)
         df = pd.read_sql(query, con=db_con, index_col='close_time')
         # df.to_excel("data.xlsx")
         return df
@@ -82,7 +81,7 @@ def backtest(values):
     vlparam = []
     sellFlag = 0
 
-    # Def get next ops
+        # Def get next ops
     def getNextOps():
         df = pd.read_sql('SELECT * FROM trader',con=db_con)
         return df 
@@ -93,7 +92,8 @@ def backtest(values):
                 VALUES(?,?,?,?,?,?,?,?) '''
         cur = db_con.cursor()
         cur.execute(sql, data)
-        db_con.commit()   
+        db_con.commit()
+          
 
     print("Backtesting in progress, this take time...")
     # Firstly, we are defining a function named ‘get_macd’ 
@@ -179,7 +179,7 @@ def backtest(values):
             vlfs.append(0)
             vlsl.append(0)
             vlparam.append(0)
-    
+
     for i in range(len(eth['close'])):
         operations = getNextOps()
         # First signals based on macd
@@ -211,7 +211,6 @@ def backtest(values):
                 val = i - x # last six periods (5 minutes each, total 30 minutes)
                 value = float(eth['close'][val])
                 ticker.append(value)
-            #print(ticker)    
             params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
             marginSell = float(params['margingsell'].values) #%
             marginSell = marginSell / 100 + 1 # Earning from each sell
@@ -306,7 +305,7 @@ def backtest(values):
             ticker = []
         # elif eth['close'][i] <= (nextOps[i - (i - counterSell)] * marginLossBuy) and counterStopLoss ==  24 and sellFlag == 0: 
         # Stop Loss after 1 hour of inactivity
-        elif eth['close'][i] >=  (float(operations['nextOpsVal'][0]) + ((float(operations['nextOpsVal'][0]) * StopLoss))) and operations['sellFlag'][0] == 0:   
+        elif eth['close'][i] >=  (float(operations['nextOpsVal'][0]) + ((float(operations['nextOpsVal'][0]) * StopLoss))) and operations['sellFlag'][0] == 0: 
             for x in reversed(range(trendParams['trend'][0])):
                 val = i - x # last six periods (5 minutes each, total 30 minutes)
                 value = float(eth['close'][val])
@@ -339,14 +338,13 @@ def backtest(values):
             ticker = []
         elif macd_signal[i] == -1:
             position[i] = 0
-            action[i] = '0'
+            action[i] = 'sell'
             counterStopLoss = counterStopLoss +1 
             counterForceSell = counterForceSell + 1
         else:
             position[i] = position[i-1]
             counterStopLoss = counterStopLoss + 1 
             counterForceSell = counterForceSell + 1
-            operations = getNextOps()
             vsellFlag = operations['sellFlag'][0]
             vqty = operations['qty'][0]
             vtrend = operations['trend'][0]
@@ -384,11 +382,11 @@ def backtest(values):
                elif  trendResul(trend.trend(ticker)) == 'normaltrend':  
                   data = (float(vqty),float(vnextOps),'ActTrend' + '-' + trendResul(trend.trend(ticker)),int(sellFlag),1,'ActTrend' + '-' + trendResul(trend.trend(ticker)),str('444444444'),trendResul(trend.trend(ticker)))
                   act_trader_nextOps(data)     
-            ticker = []      
- 
-                
-    #macd = eth_macd['macd']
-    #signal = eth_macd['signal']
+            ticker = []  
+
+    act_trader()
+    # macd = eth_macd['macd']
+    # signal = eth_macd['signal']
     close_price = eth['close']
     macd_signal = pd.DataFrame(macd_signal).rename(columns = {0:'macd_signal'}).set_index(eth.index)
     position = pd.DataFrame(position).rename(columns = {0:'macd_position'}).set_index(eth.index)
@@ -412,6 +410,7 @@ def backtest(values):
 
     print("End")
 
-# act_trader()
-# backtest('2021-09-01@2021-09-02@ETHUSDT@60')
-# act_trader()
+start = datetime.now()
+#backtest('2021-02-11@2021-10-31@ETHUSDT@60')
+backtest('2018-01-01@2021-12-31@ETHUSDT1d@10000')
+print('Tiempo de ejecución  ' + str(datetime.now() - start))

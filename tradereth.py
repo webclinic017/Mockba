@@ -51,19 +51,10 @@ sellFlag = 0
 
 #
 def getTicker():
-   url = "https://api.binance.com/api/v3/ticker/24hr"
-   r = requests.get(url)
-   df = pd.DataFrame(r.json()) 
-   
-   if r.status_code == 200:
-      df[(df.symbol == 'ETHUSDT')].filter(["lastPrice"]).values[0][0]   
-   return df[(df.symbol == 'ETHUSDT')].filter(["lastPrice"]).values[0][0]
-
-def getTrending():
-    url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=5m"
+    url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1d"
     r = requests.get(url)
     df = pd.DataFrame(r.json()) 
-    return df   
+    return df
 
 # Def insert last data ops
 def act_trader_nextOps(data):
@@ -104,14 +95,13 @@ while True:
     # get ticker
     eth = getTicker()
     periods = getTrendPeriods()
-    trending = getTrending()
     # Enable o dibale bot
     signal = pd.read_sql('SELECT * FROM t_signal',con=db_con)
     # operations values
     operations = getNextOps()
     if signal['status'][0] == 0:
         print('Bot is down') 
-    else:
+    elif operations['close_time'].values != eth[0][499]:
         # print('Calculando')
         # Fisrt buy
         if operations['counterBuy'][0] == 0:
@@ -128,12 +118,12 @@ while True:
             StopLoss = float(params['stoploss'][0] / 100) # %  
             #
             invest = float(client.get_asset_balance(asset='USDT')['free']) #400 # Initial value
-            fee = (invest / float(eth)) * feeBuy
-            qty = round(((invest / float(eth)) - fee) - 0.0001,4)
-            nextOps = round(float(eth) * marginSell,2)
+            fee = (invest / float(eth[4][499])) * feeBuy
+            qty = round(((invest / float(eth[4][499])) - fee) - 0.0001,4)
+            nextOps = round(float(eth[4][499]) * marginSell,2)
             sellFlag = 1
-            data = (qty,nextOps,'sell',sellFlag,1,'firstbuy',str(trending[0][499]),'normaltrend')
-            dataHist = (qty,nextOps,'sell',sellFlag,'buy',round(float(eth),2),float(marginBuy),str(trending[0][499]),'normaltrend')
+            data = (qty,nextOps,'sell',sellFlag,1,'firstbuy',str(eth[0][499]),'normaltrend')
+            dataHist = (qty,nextOps,'sell',sellFlag,'buy',round(float(eth[4][499]),2),float(marginBuy),str(eth[0][499]),'normaltrend')
             client.order_market_buy(symbol="ETHUSDT", quantity=qty)
             act_trader_nextOps(data)
             act_trader_history(dataHist)
@@ -144,12 +134,12 @@ while True:
             qty = 0
             nextOps = 0
         # Sell    
-        elif float(eth) >= float(operations['nextOpsVal'][0]) and operations['sellFlag'][0] == 1:
+        elif float(eth[4][499]) >= float(operations['nextOpsVal'][0]) and operations['sellFlag'][0] == 1:
             print('Sell')
             ticker = []
             for i in reversed(range(trendParams['trend'][0])):
                 val = 499 - i
-                value = float(trending[4][val])
+                value = float(eth[4][val])
                 ticker.append(value)
             params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
             marginSell = float(params['margingsell'][0]) #%
@@ -164,12 +154,12 @@ while True:
             #
             balance_eth = float(client.get_asset_balance(asset='ETH')['free'])
             fee = (balance_eth * feeSell)
-            qty = round(((balance_eth * float(eth)) - fee) /  float(eth) - 0.0001 ,4)# Sell amount
-            nextOps = round(qty / ((qty / float(eth) * marginBuy)),2) # Next buy
+            qty = round(((balance_eth * float(eth[4][499])) - fee) /  float(eth[4][499]) - 0.0001 ,4)# Sell amount
+            nextOps = round(qty / ((qty / float(eth[4][499]) * marginBuy)),2) # Next buy
             # print(nextOps)
             sellFlag = 0
-            data = (float(qty),float(nextOps),'buy',sellFlag,1,'sell',str(trending[0][499]),trendResul(trend.trend(ticker)))
-            dataHist = (float(qty),float(nextOps),'buy',sellFlag,'sell',round(float(eth),2),float(marginSell),str(trending[0][499]),trendResul(trend.trend(ticker)))
+            data = (float(qty),float(nextOps),'buy',sellFlag,1,'sell',str(eth[0][499]),trendResul(trend.trend(ticker)))
+            dataHist = (float(qty),float(nextOps),'buy',sellFlag,'sell',round(float(eth[4][499]),2),float(marginSell),str(eth[0][499]),trendResul(trend.trend(ticker)))
             client.order_market_sell(symbol="ETHUSDT", quantity=qty)
             act_trader_nextOps(data)
             act_trader_history(dataHist)
@@ -180,12 +170,12 @@ while True:
             qty = 0
             nextOps = 0
         # force sell     
-        elif float(eth) <=  (float(operations['nextOpsVal'][0]) - ((float(operations['nextOpsVal'][0]) * ForceSell))) and operations['sellFlag'][0] == 1:
+        elif float(eth[4][499]) <=  (float(operations['nextOpsVal'][0]) - ((float(operations['nextOpsVal'][0]) * ForceSell))) and operations['sellFlag'][0] == 1:
             print('Force Sell')
             ticker = []
             for i in reversed(range(trendParams['trend'][0])):
                 val = 499 - i
-                value = float(trending[4][val])
+                value = float(eth[4][val])
                 ticker.append(value)
             params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
             marginSell = float(params['margingsell'][0]) #%
@@ -200,12 +190,12 @@ while True:
             #
             balance_eth = float(client.get_asset_balance(asset='ETH')['free'])
             fee = (balance_eth * feeSell)
-            qty = round(((balance_eth * float(eth)) - fee) /  float(eth) - 0.0001 ,4)# Sell amount
-            nextOps = round(qty / ((qty / float(eth) * marginBuy)),2) # Next buy
+            qty = round(((balance_eth * float(eth[4][499])) - fee) /  float(eth[4][499]) - 0.0001 ,4)# Sell amount
+            nextOps = round(qty / ((qty / float(eth[4][499]) * marginBuy)),2) # Next buy
             # print(round(qty,4))
             sellFlag = 0
-            data = (float(qty),float(nextOps),'buy',sellFlag,1,'forceSell',str(trending[0][499]),trendResul(trend.trend(ticker)))
-            dataHist = (float(qty),float(nextOps),'buy',sellFlag,'forceSell',round(float(eth),2),float(marginSell),str(trending[0][499]),trendResul(trend.trend(ticker)))
+            data = (float(qty),float(nextOps),'buy',sellFlag,1,'forceSell',str(eth[0][499]),trendResul(trend.trend(ticker)))
+            dataHist = (float(qty),float(nextOps),'buy',sellFlag,'forceSell',round(float(eth[4][499]),2),float(marginSell),str(eth[0][499]),trendResul(trend.trend(ticker)))
             client.order_market_sell(symbol="ETHUSDT", quantity=qty)
             act_trader_nextOps(data)
             act_trader_history(dataHist)
@@ -216,12 +206,12 @@ while True:
             qty = 0
             nextOps = 0
         # Buy     
-        elif float(eth) <= float(operations['nextOpsVal'][0]) and operations['sellFlag'][0] == 0:
+        elif float(eth[4][499]) <= float(operations['nextOpsVal'][0]) and operations['sellFlag'][0] == 0:
             print('Buy')
             ticker = []
             for i in reversed(range(trendParams['trend'][0])):
                 val = 499 - i
-                value = float(trending[4][val])
+                value = float(eth[4][val])
                 ticker.append(value)
             params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
             marginSell = float(params['margingsell'][0]) #%
@@ -235,12 +225,12 @@ while True:
             #
             #
             balance_usdt = float(client.get_asset_balance(asset='USDT')['free'])
-            fee = (balance_usdt / float(eth)) * feeBuy
-            qty = round(((balance_usdt / float(eth)) - fee) - 0.0001,4) # Buy amount
-            nextOps = round(float(eth) * marginSell,2)
+            fee = (balance_usdt / float(eth[4][499])) * feeBuy
+            qty = round(((balance_usdt / float(eth[4][499])) - fee) - 0.0001,4) # Buy amount
+            nextOps = round(float(eth[4][499]) * marginSell,2)
             sellFlag = 1
-            data = (float(qty),float(nextOps), 'sell',sellFlag,1,'buy',str(trending[0][499]),trendResul(trend.trend(ticker)))
-            dataHist = (float(qty),float(nextOps),'sell',sellFlag,'buy',round(float(eth),2),float(marginBuy),str(trending[0][499]),trendResul(trend.trend(ticker)))
+            data = (float(qty),float(nextOps), 'sell',sellFlag,1,'buy',str(eth[0][499]),trendResul(trend.trend(ticker)))
+            dataHist = (float(qty),float(nextOps),'sell',sellFlag,'buy',round(float(eth[4][499]),2),float(marginBuy),str(eth[0][499]),trendResul(trend.trend(ticker)))
             client.order_market_buy(symbol="ETHUSDT", quantity=round(qty,4))
             act_trader_nextOps(data)
             act_trader_history(dataHist)
@@ -250,12 +240,12 @@ while True:
             fee = 0
             qty = 0
             nextOps = 0
-        elif float(eth) >=  (float(operations['nextOpsVal'][0]) + ((float(operations['nextOpsVal'][0]) * StopLoss))) and operations['sellFlag'][0] == 0:   
+        elif float(eth[4][499]) >=  (float(operations['nextOpsVal'][0]) + ((float(operations['nextOpsVal'][0]) * StopLoss))) and operations['sellFlag'][0] == 0:   
             print('Stop Loss')
             ticker = [] 
             for i in reversed(range(trendParams['trend'][0])):
                 val = 499 - i
-                value = float(trending[4][val])
+                value = float(eth[4][val])
                 ticker.append(value)
             params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
             marginSell = float(params['margingsell'][0]) #%
@@ -269,12 +259,12 @@ while True:
             #
             #     
             balance_usdt = float(client.get_asset_balance(asset='USDT')['free'])
-            fee = (balance_usdt / float(eth)) * feeBuy
-            qty = ((balance_usdt / float(eth)) - fee) - 0.0001 # Buy amount
-            nextOps = float(eth) * marginSell
+            fee = (balance_usdt / float(eth[4][499])) * feeBuy
+            qty = ((balance_usdt / float(eth[4][499])) - fee) - 0.0001 # Buy amount
+            nextOps = float(eth[4][499]) * marginSell
             sellFlag = 1
-            data = (float(qty),float(nextOps),'sell',sellFlag,1,'stopLoss',str(trending[0][499]),trendResul(trend.trend(ticker))) 
-            dataHist = (float(qty),float(nextOps),'sell',sellFlag,'stopLoss',round(float(eth),2),float(marginBuy),str(trending[0][499]),trendResul(trend.trend(ticker))) 
+            data = (float(qty),float(nextOps),'sell',sellFlag,1,'stopLoss',str(eth[0][499]),trendResul(trend.trend(ticker))) 
+            dataHist = (float(qty),float(nextOps),'sell',sellFlag,'stopLoss',round(float(eth[4][499]),2),float(marginBuy),str(eth[0][499]),trendResul(trend.trend(ticker))) 
             client.order_market_buy(symbol="ETHUSDT", quantity=round(qty,4))
             act_trader_nextOps(data)
             act_trader_history(dataHist)
@@ -285,7 +275,7 @@ while True:
             qty = 0
             nextOps = 0
         else:
-            update_trader_close_time(eth)
+            update_trader_close_time(eth[4][499])
             #Change strategy if the trend changes before next ops is true
             ticker = []
             operations = getNextOps()
@@ -301,7 +291,7 @@ while True:
             #
             for i in reversed(range(int(trendParams['trend'][0]))):
                 val = 499 - i
-                value = float(trending[4][val])
+                value = float(eth[4][val])
                 ticker.append(value)   
             params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
             marginSell = float(params['margingsell'][0]) #%
@@ -320,13 +310,14 @@ while True:
             if vtrend != trendResul(trend.trend(ticker)):
                # conditional depending on flags y trend is uptrend and sellflag + 1
                if vsellFlag == 1 and trendResul(trend.trend(ticker)) == 'uptrend':
-                  data = (float(vqty),float(vnextOps),'ActTrend' + '-' + trendResul(trend.trend(ticker)),int(sellFlag),1,'ActTrend' + '-' + trendResul(trend.trend(ticker)),str(trending[0][499]),trendResul(trend.trend(ticker)))
+                  data = (float(vqty),float(vnextOps),'ActTrend' + '-' + trendResul(trend.trend(ticker)),int(sellFlag),1,'ActTrend' + '-' + trendResul(trend.trend(ticker)),str(eth[0][499]),trendResul(trend.trend(ticker)))
                   act_trader_nextOps(data)
                elif  trendResul(trend.trend(ticker)) == 'downtrend':  
-                  data = (float(vqty),float(vnextOps),'ActTrend' + '-' + trendResul(trend.trend(ticker)),int(sellFlag),1,'ActTrend' + '-' + trendResul(trend.trend(ticker)),str(trending[0][499]),trendResul(trend.trend(ticker)))
+                  data = (float(vqty),float(vnextOps),'ActTrend' + '-' + trendResul(trend.trend(ticker)),int(sellFlag),1,'ActTrend' + '-' + trendResul(trend.trend(ticker)),str(eth[0][499]),trendResul(trend.trend(ticker)))
                   act_trader_nextOps(data)
                elif  trendResul(trend.trend(ticker)) == 'normaltrend':  
-                  data = (float(vqty),float(vnextOps),'ActTrend' + '-' + trendResul(trend.trend(ticker)),int(sellFlag),1,'ActTrend' + '-' + trendResul(trend.trend(ticker)),str(trending[0][499]),trendResul(trend.trend(ticker)))
+                  data = (float(vqty),float(vnextOps),'ActTrend' + '-' + trendResul(trend.trend(ticker)),int(sellFlag),1,'ActTrend' + '-' + trendResul(trend.trend(ticker)),str(eth[0][499]),trendResul(trend.trend(ticker)))
                   act_trader_nextOps(data)   
-               # print('ActTrend...........' + str(nextOps))      
-    time.sleep(20)    
+    else:
+        print('Waiting candelstick 1d close...........')      
+    time.sleep(20)

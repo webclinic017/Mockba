@@ -40,7 +40,7 @@ def disable_bot():
 
 # Def update ops
 def restart_bot():
-    sql = "insert into trader values (0,0,0,0,0,0,0,0,'normaltrend')"
+    sql = "insert into trader values (0,0,0,0,0,0,0,'normaltrend')"
     cur = db_con.cursor()
     cur.execute(sql)
     db_con.commit()  
@@ -264,7 +264,7 @@ def trade(m):
         print(file)
         bot.send_document(cid,file)
         # for i in df.index:
-         #   bot.send_message(cid, 'Close time: ' +  str(df['close_time'][i]) + "\n Next Ops: " + str(round(df['nextOps'][i],4)) + " \n Op: " + str(df['ops'][i]) + " \n Qty: " + str(round(df['qty'][i],4)), parse_mode='Markdown', reply_markup=markup)
+         #   bot.send_message(cid, 'Close time: ' +  str(df['close_time'][i]) + "\n Next Ops: " + str(df['nextOps'][i]) + " \n Op: " + str(df['ops'][i]) + " \n Qty: " + str(df['qty'][i]), parse_mode='Markdown', reply_markup=markup)
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')
 
@@ -283,19 +283,21 @@ def trader(m):
         df = pd.read_sql(query,con=db_con)
         eth = getTicker()
         for i in df.index:
-            bot.send_message(cid, 'Qty: ' +  str(round(df['qty'][i],4)) 
-            + "\n Next Ops Value: " + str(round(df['nextOpsVal'][i],4)) 
-            + "\n Next Ops: " + str(round(df['nextOps'][i],4)) 
+            balanceEth = "{:2,.4f}".format(balance_eth)
+            balanceUsdt = "{:2,.4f}".format(balance_usdt)
+            bot.send_message(cid, 'Qty: ' +  str(df['qty'][i]) 
+            + "\n Next Ops Value: " + str(df['nextOpsVal'][i]) 
+            + "\n Next Ops: " + str(df['nextOps'][i]) 
             + " \n sellFlag: " + str(df['sellFlag'][i]) 
             + " \n Ops: "      + str(df['ops'][i]) 
             + " \n Trend: " + params['trend'][0] 
             + " \n Margin Sell: " + str(params['margingsell'][0]) + " %" 
             + " \n Margin buy: " + str(params['margingbuy'][0]) + " %"
-            + " \n ForceSell: " + str(params['forcesell'][0]) + " % / " + str(round(df['nextOps'][i],2) - (round(df['nextOps'][i],2) * params['forcesell'].values /100))
-            + " \n StopLoss: " + str(params['stoploss'][0]) + " % / " + str(round(df['nextOps'][i],2) + (round(df['nextOps'][i],2) * params['stoploss'].values /100))
+            + " \n ForceSell: " + str(params['forcesell'][0]) + " % "
+            + " \n StopLoss: " + str(params['stoploss'][0]) + " % "
             + " \n Ticker: " + str(eth[4][499]) 
-            + " \n\n Balance Eth: " + str(round(balance_eth,4)) + " \n Balance USDT: " 
-            + str(round(balance_usdt,2)), parse_mode='Markdown')
+            + " \n\n Balance Eth: " + balanceEth + " \n Balance USDT: " 
+            + str(balanceUsdt), parse_mode='Markdown')
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')
 
