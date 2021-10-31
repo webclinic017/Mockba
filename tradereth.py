@@ -65,6 +65,13 @@ def act_trader_nextOps(data):
     db_con.commit()
 
 # Def insert last data ops
+def update_trader_nextOps(data):
+    sql = "update trader set nextOpsVal = ?, trend = ?"
+    cur = db_con.cursor()
+    cur.execute(sql, data)
+    db_con.commit()    
+
+# Def insert last data ops
 def act_trader_history(data):
     sql = ''' INSERT INTO trader_history(qty,nextOpsVal,nextOps,sellFlag,ops,price,margin,close_time,trend)
               VALUES(?,?,?,?,?,?,?,?,?) '''
@@ -274,50 +281,46 @@ while True:
             fee = 0
             qty = 0
             nextOps = 0
-        else:
-            update_trader_close_time(eth[4][499])
-            #Change strategy if the trend changes before next ops is true
-            ticker = []
-            operations = getNextOps()
-            vsellFlag = operations['sellFlag'][0]
-            vqty = operations['qty'][0]
-            vtrend = operations['trend'][0]
-            vnextOps = 0
-            vticker = operations['nextOpsVal'][0]
-            #print(sellFlag)
-            #print(qty)
-            #print(vtrend)
-            # print(trendParams['trend'][0])
-            #
-            for i in reversed(range(int(trendParams['trend'][0]))):
-                val = 499 - i
-                value = float(eth[4][val])
-                ticker.append(value)   
-            params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
-            marginSell = float(params['margingsell'][0]) #%
-            marginSell = marginSell / 100 + 1 # Earning from each sell
-            ForceSell = float(params['forcesell'][0] / 100) # %
-            #
-            #
-            marginBuy = float(params['margingbuy'][0]) #%
-            marginBuy = marginBuy / 100 + 1 # Earning from each buy
-            StopLoss = float(params['stoploss'][0] / 100) # % 
-            if vsellFlag == 1:    
-               vnextOps = round(vticker * marginSell,2) 
-            else:              
-               vnextOps = round(vqty / ((vqty / vticker * marginBuy)),2) # Next buy 
-            #print(trendResul(trend.trend(ticker)) )       
-            if vtrend != trendResul(trend.trend(ticker)):
-               # conditional depending on flags y trend is uptrend and sellflag + 1
-               if vsellFlag == 1 and trendResul(trend.trend(ticker)) == 'uptrend':
-                  data = (float(vqty),float(vnextOps),'ActTrend' + '-' + trendResul(trend.trend(ticker)),int(sellFlag),1,'ActTrend' + '-' + trendResul(trend.trend(ticker)),str(eth[0][499]),trendResul(trend.trend(ticker)))
-                  act_trader_nextOps(data)
-               elif  trendResul(trend.trend(ticker)) == 'downtrend':  
-                  data = (float(vqty),float(vnextOps),'ActTrend' + '-' + trendResul(trend.trend(ticker)),int(sellFlag),1,'ActTrend' + '-' + trendResul(trend.trend(ticker)),str(eth[0][499]),trendResul(trend.trend(ticker)))
-                  act_trader_nextOps(data)
-               elif  trendResul(trend.trend(ticker)) == 'normaltrend':  
-                  data = (float(vqty),float(vnextOps),'ActTrend' + '-' + trendResul(trend.trend(ticker)),int(sellFlag),1,'ActTrend' + '-' + trendResul(trend.trend(ticker)),str(eth[0][499]),trendResul(trend.trend(ticker)))
-                  act_trader_nextOps(data)   
     else:
-        print('Waiting candelstick 1d close...........')      
+        print('Wait candle close 1d')
+        update_trader_close_time(eth[0][499])
+        #Change strategy if the trend changes before next ops is true
+        ticker = []
+        operations = getNextOps()
+        vsellFlag = operations['sellFlag'][0]
+        vqty = operations['qty'][0]
+        vtrend = operations['trend'][0]
+        vnextOps = 0
+        vticker = operations['nextOpsVal'][0]
+        vOps = operations['nextOps'][0]
+        #print(sellFlag)
+        #print(qty)
+        #print(vtrend)
+        # print(trendParams['trend'][0])
+        #
+        for i in reversed(range(int(trendParams['trend'][0]))):
+            val = 499 - i
+            value = float(eth[4][val])
+            ticker.append(value)   
+        #print(ticker)
+        #print(trendResul(trend.trend(ticker))) 
+        #print(trend.trend(ticker)) 
+        params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
+        marginSell = float(params['margingsell'][0]) #%
+        marginSell = marginSell / 100 + 1 # Earning from each sell
+        ForceSell = float(params['forcesell'][0] / 100) # %
+        #
+        #
+        marginBuy = float(params['margingbuy'][0]) #%
+        marginBuy = marginBuy / 100 + 1 # Earning from each buy
+        StopLoss = float(params['stoploss'][0] / 100) # % 
+        if vsellFlag == 1:    
+            vnextOps = round(vticker * marginSell,2) 
+        else:              
+            vnextOps = round(vqty / ((vqty / vticker * marginBuy)),2) # Next buy 
+        #print(trendResul(trend.trend(ticker)) )       
+        if vtrend != trendResul(trend.trend(ticker)):
+           data = (float(vnextOps),trendResul(trend.trend(ticker)))
+           #print('Updating')
+           update_trader_nextOps(data)        
     time.sleep(20)

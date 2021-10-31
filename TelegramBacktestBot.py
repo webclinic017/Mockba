@@ -12,10 +12,10 @@ import trend as tr
 from datetime import datetime
 
 # Telegram Bot
-#API_TOKEN = '2096372558:AAFZtSi_8wHrfEQjJatdnYhDtEgkm8TaipM'
-API_TOKEN = '2062206747:AAErYHIXKE_yl6IpfeVbVFcgnazltJLHMmM' #Ivanex
-#db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
-db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False) #ivanex
+API_TOKEN = '2096372558:AAFZtSi_8wHrfEQjJatdnYhDtEgkm8TaipM'
+#API_TOKEN = '2062206747:AAErYHIXKE_yl6IpfeVbVFcgnazltJLHMmM' #Ivanex
+db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
+#db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False) #ivanex
 #db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
 
 # Def get next ops
@@ -41,7 +41,7 @@ def trendTime(data):
     db_con.close              
 
 def getTicker():
-   url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=5m"
+   url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1d"
    r = requests.get(url)
    df = pd.DataFrame(r.json()) 
    return df 

@@ -24,7 +24,7 @@ def trend(data):
     return slope
 
 def trendBot(vlrange):
-    url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=5m"
+    url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1d"
     r = requests.get(url)
     df = pd.DataFrame(r.json()) 
     eth  = df
