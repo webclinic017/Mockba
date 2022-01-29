@@ -10,7 +10,7 @@ import trend as tr
 
 
 # Telegram Bot
-API_TOKEN = '1042444870:AAHEuYUbs2YJrGDUEfd1ZjvomJafqCStMKM'
+API_TOKEN = '5102128518:AAF6J_RU16KfwI6UX1Pv-nnACwgYcYEt8G4'
 api_key = api.Api().api_key
 api_secret = api.Api().api_secret
 client = Client(api_key, api_secret)
@@ -40,7 +40,7 @@ def disable_bot():
 
 # Def update ops
 def restart_bot():
-    sql = "insert into trader values (0,0,0,0,0,0,0,'normaltrend')"
+    sql = "insert into trader values (0,0,0,0,0,0,0,'normaltrend','0')"
     cur = db_con.cursor()
     cur.execute(sql)
     db_con.commit()  
@@ -63,7 +63,7 @@ def trendTime(data):
     db_con.close              
 
 def getTicker():
-   url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=5m"
+   url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1d"
    r = requests.get(url)
    df = pd.DataFrame(r.json()) 
    return df 
@@ -206,11 +206,11 @@ def dautobot(m):
 def years(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    item1 = types.KeyboardButton('2021')
-    item2 = types.KeyboardButton('2022')
-    item3 = types.KeyboardButton('2023')
-    item4 = types.KeyboardButton('2024')
-    item5 = types.KeyboardButton('2025')
+    item1 = types.KeyboardButton('2022')
+    item2 = types.KeyboardButton('2023')
+    item3 = types.KeyboardButton('2024')
+    item4 = types.KeyboardButton('2025')
+    item5 = types.KeyboardButton('2026')
     itemb = types.KeyboardButton('/list')
     markup.row(item1)
     markup.row(item2)
@@ -290,16 +290,21 @@ def trader(m):
             + "\n Next Ops: " + str(df['nextOps'][i]) 
             + " \n sellFlag: " + str(df['sellFlag'][i]) 
             + " \n Ops: "      + str(df['ops'][i]) 
-            + " \n Trend: " + params['trend'][0] 
+            + " \n Trend: " + df['trend'][0] 
             + " \n Margin Sell: " + str(params['margingsell'][0]) + " %" 
             + " \n Margin buy: " + str(params['margingbuy'][0]) + " %"
             + " \n ForceSell: " + str(params['forcesell'][0]) + " % "
             + " \n StopLoss: " + str(params['stoploss'][0]) + " % "
+            + " \n UpdatedAt: " + str(df['updatedAt'][0]) + ""
             + " \n Ticker: " + str(eth[4][499]) 
             + " \n\n Balance Eth: " + balanceEth + " \n Balance USDT: " 
             + str(balanceUsdt), parse_mode='Markdown')
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')
+    balance_usdt = 0
+    balance_eth = 0 
+    balanceUsdt = 0
+    balanceEth = 0   
 
 @bot.message_handler(commands=['botstatus'])
 def botstatus(m):

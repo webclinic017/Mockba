@@ -9,8 +9,9 @@ from datetime import datetime
 # plt.rcParams['figure.figsize'] = (20, 10)
 # plt.style.use('fivethirtyeight')
 # Def act trader
-#b_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
-db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False) #ivanex
+#db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
+#db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False) #ivanex
+db_con = sqlite3.connect('/opt/vicious/storage/mockbabacktest.db', check_same_thread=False) #vicious
 #db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
 
 def act_trader():
