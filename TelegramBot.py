@@ -10,7 +10,7 @@ import trend as tr
 
 
 # Telegram Bot
-API_TOKEN = '5102128518:AAF6J_RU16KfwI6UX1Pv-nnACwgYcYEt8G4'
+API_TOKEN = ''
 api_key = api.Api().api_key
 api_secret = api.Api().api_secret
 client = Client(api_key, api_secret)
