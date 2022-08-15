@@ -12,12 +12,12 @@ import trend as tr
 from datetime import datetime
 
 # Telegram Botte voy a 
-#API_TOKEN = '2096372558:AAFZtSi_8wHrfEQjJatdnYhDtEgkm8TaipM'
+API_TOKEN = '2096372558:AAFZtSi_8wHrfEQjJatdnYhDtEgkm8TaipM'
 #API_TOKEN = '2062206747:AAErYHIXKE_yl6IpfeVbVFcgnazltJLHMmM' #Ivanex
-API_TOKEN = '5102128518:AAF6J_RU16KfwI6UX1Pv-nnACwgYcYEt8G4' #Vicious
-#db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
+#API_TOKEN = '5102128518:AAF6J_RU16KfwI6UX1Pv-nnACwgYcYEt8G4' #Vicious
+db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
 #db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False) #ivanex
-db_con = sqlite3.connect('/opt/vicious/storage/mockbabacktest.db', check_same_thread=False) #vicious
+#db_con = sqlite3.connect('/opt/vicious/storage/mockbabacktest.db', check_same_thread=False) #vicious
 #db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
 
 # Def get next ops
@@ -177,9 +177,9 @@ def paramsActions(m):
     valor = m.text
     global gdata
     gdata = (valor.split('@')[0],valor.split('@')[1],valor.split('@')[2],valor.split('@')[3],valor.split('@')[4])
-    markup = types.ReplyKeyboardMarkup()
-    itemd = types.KeyboardButton('/list')
-    markup.row(itemd)
+    ##markup = types.ReplyKeyboardMarkup()
+    ##itemd = types.KeyboardButton('/list')
+    ##markup.row(itemd)
     if  int(user['token'].values) == cid:
         paramsAction(gdata)
         bot.send_message(cid, 'Params has changed...done !!', parse_mode='Markdown')
@@ -192,7 +192,7 @@ def historical(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
-    bot.send_message(cid, 'Put your params, ticker and time (1m,5m,1h,2h,1d), @ separated, example ETHUSDT@5m', parse_mode='Markdown', reply_markup=markup)
+    bot.send_message(cid, 'Put your params, ticker and time (1m,5m,1h,2h,4h,1d), @ separated, example ETHUSDT@5m', parse_mode='Markdown', reply_markup=markup)
     bot.register_next_step_handler_by_chat_id(cid, gethistorical)
 
 def gethistorical(m):

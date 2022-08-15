@@ -11,7 +11,8 @@ from datetime import datetime
 api_key = api.Api().api_key
 api_secret = api.Api().api_secret
 client = Client(api_key, api_secret)
-db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
+#db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
+db_con = sqlite3.connect('/opt/domgarmining/storage/mockba.db', check_same_thread=False)
 # db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
 
 now = datetime.now()
@@ -19,7 +20,7 @@ now = datetime.now()
 # Variables for trading
 qty = 0 # Qty buy
 #
-feeBuy = 0.099921 # 0.9%
+feeBuy = 0.099921 # 0.09%
 feeBuy = (feeBuy / 100) # Binance fee when buy
 #
 feeSell = 0.1 # 1%
@@ -65,7 +66,7 @@ def getNextOps():
 
 #
 def getTicker():
-    url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1d"
+    url = "https://api.binance.com/api/v3/klines?symbol=NEARBUSD&interval=1d"
     r = requests.get(url)
     df = pd.DataFrame(r.json()) 
     return df
@@ -138,17 +139,19 @@ while True:
             marginBuy = marginBuy / 100 + 1 # Earning from each buy
             StopLoss = float(params['stoploss'][0] / 100) # %  
             #
-            invest = float(client.get_asset_balance(asset='USDT')['free']) #400 # Initial value
+            invest = float(client.get_asset_balance(asset='BUSD')['free']) #400 # Initial value
             fee = (invest / float(eth[4][499])) * feeBuy
-            qty = round(((invest / float(eth[4][499])) - fee) - 0.0001,4)
+            qty = round(((invest / float(eth[4][499])) - fee) ,1)
             nextOps = round(float(eth[4][499]) * marginSell,2)
             sellFlag = 1
             data = (qty,nextOps,'sell',sellFlag,1,'firstbuy',str(eth[0][499]),'normaltrend',now.strftime("%d/%m/%Y %H:%M:%S"),round(float(eth[4][499]),2))
             dataHist = (qty,nextOps,'sell',sellFlag,'buy',round(float(eth[4][499]),2),float(marginBuy),str(eth[0][499]),'normaltrend')
-            client.order_market_buy(symbol="ETHUSDT", quantity=qty)
+            print('Invest-------------------' + str(invest))
+            print('First Buy-------------------' + str(qty))
+            client.order_market_buy(symbol="NEARBUSD", quantity=qty)           
             act_trader_nextOps(data)
             act_trader_history(dataHist)
-            sm.sendMail('First Buy')
+            #sm.sendMail('First Buy')
             time.sleep(3)
             #print('Done...')
             fee = 0
@@ -173,15 +176,15 @@ while True:
             StopLoss = float(params['stoploss'][0] / 100) # %   
             #
             #
-            balance_eth = float(client.get_asset_balance(asset='ETH')['free'])
+            balance_eth = float(client.get_asset_balance(asset='NEAR')['free'])
             fee = (balance_eth * feeSell)
-            qty = round(((balance_eth * float(eth[4][499])) - fee) /  float(eth[4][499]) - 0.0001 ,4)# Sell amount
+            qty = round(((balance_eth * float(eth[4][499])) - fee) /  float(eth[4][499]) - 0.0001 ,1)# Sell amount
             nextOps = round(qty / ((qty / float(eth[4][499]) * marginBuy)),2) # Next buy
             # print(nextOps)
             sellFlag = 0
             data = (float(qty),float(nextOps),'buy',sellFlag,1,'sell',str(eth[0][499]),trendResul(trend.trend(ticker)),now.strftime("%d/%m/%Y %H:%M:%S"),round(float(eth[4][499]),2))
             dataHist = (float(qty),float(nextOps),'buy',sellFlag,'sell',round(float(eth[4][499]),2),float(marginSell),str(eth[0][499]),trendResul(trend.trend(ticker)))
-            client.order_market_sell(symbol="ETHUSDT", quantity=qty)
+            client.order_market_sell(symbol="NEARBUSD", quantity=qty)
             act_trader_nextOps(data)
             act_trader_history(dataHist)
             sm.sendMail('Sell')
@@ -209,15 +212,15 @@ while True:
             StopLoss = float(params['stoploss'][0] / 100) # %   
             #
             #
-            balance_eth = float(client.get_asset_balance(asset='ETH')['free'])
+            balance_eth = float(client.get_asset_balance(asset='NEAR')['free'])
             fee = (balance_eth * feeSell)
-            qty = round(((balance_eth * float(eth[4][499])) - fee) /  float(eth[4][499]) - 0.0001 ,4)# Sell amount
+            qty = round(((balance_eth * float(eth[4][499])) - fee) /  float(eth[4][499]) - 0.0001 ,1)# Sell amount
             nextOps = round(qty / ((qty / float(eth[4][499]) * marginBuy)),2) # Next buy
             # print(round(qty,4))
             sellFlag = 0
             data = (float(qty),float(nextOps),'buy',sellFlag,1,'forceSell',str(eth[0][499]),trendResul(trend.trend(ticker)),now.strftime("%d/%m/%Y %H:%M:%S"),round(float(eth[4][499]),2))
             dataHist = (float(qty),float(nextOps),'buy',sellFlag,'forceSell',round(float(eth[4][499]),2),float(marginSell),str(eth[0][499]),trendResul(trend.trend(ticker)))
-            client.order_market_sell(symbol="ETHUSDT", quantity=qty)
+            client.order_market_sell(symbol="NEARBUSD", quantity=qty)
             act_trader_nextOps(data)
             act_trader_history(dataHist)
             sm.sendMail('Force Sell')
@@ -245,14 +248,14 @@ while True:
             StopLoss = float(params['stoploss'][0] / 100) # %   
             #
             #
-            balance_usdt = float(client.get_asset_balance(asset='USDT')['free'])
+            balance_usdt = float(client.get_asset_balance(asset='BUSD')['free'])
             fee = (balance_usdt / float(eth[4][499])) * feeBuy
-            qty = round(((balance_usdt / float(eth[4][499])) - fee) - 0.0001,4) # Buy amount
+            qty = round(((balance_usdt / float(eth[4][499])) - fee) - 0.0001,1) # Buy amount
             nextOps = round(float(eth[4][499]) * marginSell,2)
             sellFlag = 1
             data = (float(qty),float(nextOps), 'sell',sellFlag,1,'buy',str(eth[0][499]),trendResul(trend.trend(ticker)),now.strftime("%d/%m/%Y %H:%M:%S"),round(float(eth[4][499]),2))
             dataHist = (float(qty),float(nextOps),'sell',sellFlag,'buy',round(float(eth[4][499]),2),float(marginBuy),str(eth[0][499]),trendResul(trend.trend(ticker)))
-            client.order_market_buy(symbol="ETHUSDT", quantity=round(qty,4))
+            client.order_market_buy(symbol="NEARBUSD", quantity=round(qty,4))
             act_trader_nextOps(data)
             act_trader_history(dataHist)
             sm.sendMail('Buy')
@@ -279,14 +282,14 @@ while True:
             StopLoss = float(params['stoploss'][0] / 100) # %   
             #
             #     
-            balance_usdt = float(client.get_asset_balance(asset='USDT')['free'])
+            balance_usdt = float(client.get_asset_balance(asset='BUSD')['free'])
             fee = (balance_usdt / float(eth[4][499])) * feeBuy
             qty = ((balance_usdt / float(eth[4][499])) - fee) - 0.0001 # Buy amount
             nextOps = float(eth[4][499]) * marginSell
             sellFlag = 1
             data = (float(qty),float(nextOps),'sell',sellFlag,1,'stopLoss',str(eth[0][499]),trendResul(trend.trend(ticker)),now.strftime("%d/%m/%Y %H:%M:%S"),round(float(eth[4][499]),2)) 
             dataHist = (float(qty),float(nextOps),'sell',sellFlag,'stopLoss',round(float(eth[4][499]),2),float(marginBuy),str(eth[0][499]),trendResul(trend.trend(ticker))) 
-            client.order_market_buy(symbol="ETHUSDT", quantity=round(qty,4))
+            client.order_market_buy(symbol="NEARBUSD", quantity=round(qty,4))
             act_trader_nextOps(data)
             act_trader_history(dataHist)
             sm.sendMail('Stop Loss')

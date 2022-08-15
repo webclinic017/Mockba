@@ -43,6 +43,6 @@ def trendBot(vlrange):
     return trend(ticker)
 
 #ticker = [3512.53,3496.55,3492.86,3492.6,3498.1,3493.55]
-#ticker = [3498.1,3493.55,3476.92,3458.84,3461,3451.93]
-#print(trend(ticker))
+ticker = [3498.1,3493.55,3476.92,3458.84,3461,3451.93]
+print(trend(ticker))
 #print(trendBot(6))

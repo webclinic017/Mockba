@@ -1,3 +1,3 @@
 #!/bin/sh
-/var/lib/system/venv/bin/python3 /var/lib/system/forever.py /var/lib/system/tradereth.py
+/opt/domgarmining/venv/bin/python3 /opt/domgarmining/forever.py /opt/domgarmining/tradereth.py
 exit 0

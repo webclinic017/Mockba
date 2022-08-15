@@ -11,8 +11,8 @@ from datetime import datetime
 # Def act trader
 #db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
 #db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False) #ivanex
-db_con = sqlite3.connect('/opt/vicious/storage/mockbabacktest.db', check_same_thread=False) #vicious
-#db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
+#db_con = sqlite3.connect('/opt/vicious/storage/mockbabacktest.db', check_same_thread=False) #vicious
+db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
 
 def act_trader():
     sql = "INSERT INTO trader values (0,0,0,0,0,0,0,0)"
@@ -413,5 +413,5 @@ def backtest(values):
 
 start = datetime.now()
 #backtest('2021-02-11@2021-10-31@ETHUSDT@60')
-backtest('2018-01-01@2021-12-31@ETHUSDT1d@10000')
+backtest('2021-07-01@2021-07-31@BTCSTBUSD1m@100')
 print('Tiempo de ejecución  ' + str(datetime.now() - start))

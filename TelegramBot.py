@@ -10,16 +10,18 @@ import trend as tr
 
 
 # Telegram Bot
-API_TOKEN = '5102128518:AAF6J_RU16KfwI6UX1Pv-nnACwgYcYEt8G4'
+API_TOKEN = '1042444870:AAHEuYUbs2YJrGDUEfd1ZjvomJafqCStMKM'
+##API_TOKEN = '5243780817:AAH0sAiYxka8VGV8s2q_KeYUU3oNT7nD_6Q' #Domgarmining
 api_key = api.Api().api_key
 api_secret = api.Api().api_secret
 client = Client(api_key, api_secret)
 db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
+##db_con = sqlite3.connect('/opt/domgarmining/storage/mockba.db', check_same_thread=False)
 # db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
 
 # Def get next ops
-def getUser():
-    df = pd.read_sql('SELECT * FROM t_login',con=db_con)
+def getUser(token):
+    df = pd.read_sql("SELECT * FROM t_login where token = '" + token + "'" ,con=db_con)
     return df
 
 # Def update ops
@@ -40,7 +42,7 @@ def disable_bot():
 
 # Def update ops
 def restart_bot():
-    sql = "insert into trader values (0,0,0,0,0,0,0,'normaltrend','0')"
+    sql = "insert into trader values (0,0,0,0,0,0,0,'normaltrend','0','0')"
     cur = db_con.cursor()
     cur.execute(sql)
     db_con.commit()  
@@ -73,7 +75,6 @@ final_result = []
 gyear = ""
 gmonth = ""
 gdata = ""
-user = getUser()
 ########################################################################################################
 ###############################Operaciones para manejar en el Bot#######################################
 ########################################################################################################
@@ -97,7 +98,7 @@ def command_start(m):
     cid = m.chat.id
     nom = m.chat.first_name
     bot.send_message(cid,
-                    "Welcome to Mockba " + str(nom))
+                    "Welcome to Mockba " + str(cid))
     command_help(m)
 
 
@@ -141,6 +142,8 @@ def listparams(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
+    # print(cid)
+    user = getUser(str(cid))
     if  int(user['token'].values) == cid:
         df = pd.read_sql('SELECT * FROM parameters order by id',con=db_con)
 
@@ -156,6 +159,7 @@ def listtrend(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
+    user = getUser(str(cid))
     if  int(user['token'].values) == cid:
         df = pd.read_sql('SELECT * FROM trend order by id',con=db_con)
         for i in df.index:
@@ -171,6 +175,7 @@ def trend(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
+    user = getUser(str(cid))
     if  int(user['token'].values) == cid:
         trendParams = pd.read_sql("SELECT * FROM trend",con=db_con)
         bot.send_message(cid, 'Trend in real time ' + str(tr.trendBot(trendParams['trend'][0])), parse_mode='Markdown', reply_markup=markup)                    
@@ -183,6 +188,7 @@ def actautobot(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
+    user = getUser(str(cid))
     if int(user['token'].values) == cid:
         enable_bot()
         bot.send_message(cid, "Bot enabled....", parse_mode='Markdown', reply_markup=markup)
@@ -196,6 +202,7 @@ def dautobot(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
+    user = getUser(str(cid))
     if  int(user['token'].values) == cid:
         disable_bot()
         bot.send_message(cid, "Bot disabled....", parse_mode='Markdown')
@@ -253,6 +260,7 @@ def trade(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
+    user = getUser(str(cid))
     if  int(user['token'].values) == cid:
         query  = "select qty, nextOpsVal, nextOps, sellFlag, ops, price, margin, STRFTIME('%d/%m/%Y %H:%M',datetime(close_time/1000, 'unixepoch')) close_time, trend from trader_history"
         query += " where STRFTIME('%Y',datetime(close_time/1000, 'unixepoch')) = '" + gyear + "'"
@@ -278,6 +286,7 @@ def trader(m):
     params = pd.read_sql('SELECT * FROM parameters where trend = (select trend from trader)',con=db_con)
     balance_usdt = float(client.get_asset_balance(asset='USDT')['free'])
     balance_eth = float(client.get_asset_balance(asset='ETH')['free'])
+    user = getUser(str(cid))
     if  int(user['token'].values) == cid:
         query  = "select * from trader"
         df = pd.read_sql(query,con=db_con)
@@ -297,7 +306,7 @@ def trader(m):
             + " \n StopLoss: " + str(params['stoploss'][0]) + " % "
             + " \n UpdatedAt: " + str(df['updatedAt'][0]) + ""
             + " \n Ticker: " + str(eth[4][499]) 
-            + " \n\n Balance Eth: " + balanceEth + " \n Balance USDT: " 
+            + " \n\n Balance ETH: " + balanceEth + " \n Balance USDT: " 
             + str(balanceUsdt), parse_mode='Markdown')
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')
@@ -313,6 +322,7 @@ def botstatus(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
+    user = getUser(str(cid))
     if  int(user['token'].values) == cid:
         query  = "select case when status = '1' then 'Bot enabled' else 'Bot disabled' end status from t_signal"
         df = pd.read_sql(query,con=db_con)
@@ -328,6 +338,7 @@ def resetbot(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
+    user = getUser(str(cid))
     if  int(user['token'].values) == cid:
         restart_bot()
         bot.send_message(cid, 'All operations start from cero...done !!', parse_mode='Markdown')
@@ -351,6 +362,7 @@ def paramsActions(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
+    user = getUser(str(cid))
     if  int(user['token'].values) == cid:
         paramsAction(gdata)
         bot.send_message(cid, 'Params has changed...done !!', parse_mode='Markdown')
@@ -375,6 +387,7 @@ def trendtimeActions(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
+    user = getUser(str(cid))
     if  int(user['token'].values) == cid:
         trendTime(gdata)
         bot.send_message(cid, 'Trend time has changed...done !!', parse_mode='Markdown')

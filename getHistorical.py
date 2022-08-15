@@ -14,15 +14,15 @@ binance_api_key = api.Api().api_key  # Enter your own API-key here
 binance_api_secret = api.Api().api_secret  # Enter your own API-secret here
 
 ### CONSTANTS
-binsizes = {"1m": 1, "5m": 5, "1h": 60, "2h": 120, "1d": 1440}
+binsizes = {"1m": 1, "5m": 5, "1h": 60, "2h": 120, "4h": 240, "1d": 1440}
 batch_size = 750
 binance_client = Client(api_key=binance_api_key, api_secret=binance_api_secret)
 
 
 # Database conection
 # db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
-#db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
-db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False)
+db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
+#db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False)
 
 ### FUNCTIONS
 def minutes_of_new_data(symbol, kline_size, data, source):
@@ -69,9 +69,9 @@ def get_all_binance(symbol, kline_size, save=False):
     data_df.set_index('timestamp', inplace=True)
     if save:
          data_df.to_csv(filename)  
-         #data_df.to_sql('historical_' + symbol + kline_size, if_exists="replace",
-          #   con=db_con, index=True)
+         # data_df.to_sql('historical_' + symbol + kline_size, if_exists="append",
+           # con=db_con, index=True)
     print('All caught up..!')
     return data_df
 
-#get_all_binance("BTCUSDT", "1d", save=True)
+# get_all_binance("ETHUSDT", "4h", save=True)
