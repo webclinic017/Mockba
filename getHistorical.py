@@ -20,9 +20,9 @@ binance_client = Client(api_key=binance_api_key, api_secret=binance_api_secret)
 
 
 # Database conection
-# db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
-db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
-#db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False)
+db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
+# db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
+# db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False)
 
 ### FUNCTIONS
 def minutes_of_new_data(symbol, kline_size, data, source):
@@ -38,12 +38,8 @@ def minutes_of_new_data(symbol, kline_size, data, source):
 
 def get_all_binance(symbol, kline_size, save=False):
     filename = '%s-%s-data.csv' % (symbol, kline_size)
-    query = 'select cast(timestamp as text) as timestamp, open, high, low, close, volume, close_time, quote_av, trades, tb_base_av, tb_quote_av, ignore from public."historical_ETHUSDT"'
-    #df = pd.read_sql(query, con=db_con)
-    #if len(df['close']) > 0:
     if os.path.isfile(filename):
         data_df = pd.read_csv(filename)
-        #data_df = df
     else:
         data_df = pd.DataFrame()
     oldest_point, newest_point = minutes_of_new_data(
@@ -69,9 +65,7 @@ def get_all_binance(symbol, kline_size, save=False):
     data_df.set_index('timestamp', inplace=True)
     if save:
          data_df.to_csv(filename)  
-         # data_df.to_sql('historical_' + symbol + kline_size, if_exists="append",
-           # con=db_con, index=True)
     print('All caught up..!')
     return data_df
 
-# get_all_binance("ETHUSDT", "4h", save=True)
+get_all_binance("ETHUSDT", "5m", save=True)
