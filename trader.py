@@ -4,7 +4,6 @@ import sqlite3
 import pandas as pd
 import requests
 import time
-import sendmail as sm
 import trend as trend
 from datetime import datetime
 

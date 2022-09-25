@@ -3,33 +3,31 @@ import pandas as pd
 import math
 import os.path
 import time
-import apis as api
 from binance.client import Client
 from datetime import timedelta, datetime
 from dateutil import parser
-import sqlite3
+import operations as op
 
 ### API
-binance_api_key = api.Api().api_key  # Enter your own API-key here
-binance_api_secret = api.Api().api_secret  # Enter your own API-secret here
+df = op.getApi("556159355")
+# Getting api from database
+binance_api_key = df['api_key']
+binance_api_secret = df['api_secret']
 
 ### CONSTANTS
 binsizes = {"1m": 1, "5m": 5, "1h": 60, "2h": 120, "4h": 240, "1d": 1440}
 batch_size = 750
-binance_client = Client(api_key=binance_api_key, api_secret=binance_api_secret)
-
+binance_client = Client(api_key=binance_api_key.to_string(index=False), api_secret=binance_api_secret.to_string(index=False))
 
 # Database conection
-db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
-# db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
-# db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False)
+db_con = op.db_con
 
 ### FUNCTIONS
 def minutes_of_new_data(symbol, kline_size, data, source):
     if len(data) > 0:
         old = parser.parse(data["timestamp"].iloc[-1])
     elif source == "binance":
-        old = datetime.strptime("01 Jan 2015", '%d %b %Y')
+        old = datetime.strptime("01 Jan 2020", '%d %b %Y')
     if source == "binance":
         new = pd.to_datetime(binance_client.get_klines(
             symbol=symbol, interval=kline_size)[-1][0], unit='ms')
@@ -46,7 +44,7 @@ def get_all_binance(symbol, kline_size, save=False):
         symbol, kline_size, data_df, source="binance")
     delta_min = (newest_point - oldest_point).total_seconds()/60
     available_data = math.ceil(delta_min/binsizes[kline_size])
-    if oldest_point == datetime.strptime("01 Jan 2015", '%d %b %Y'):
+    if oldest_point == datetime.strptime("01 Jan 2020", '%d %b %Y'):
         print('Downloading all available %s data for %s. Be patient..!' %
               (kline_size, symbol))
     else:
@@ -64,8 +62,8 @@ def get_all_binance(symbol, kline_size, save=False):
         data_df = data.drop_duplicates(subset=['close_time'])
     data_df.set_index('timestamp', inplace=True)
     if save:
-         data_df.to_csv(filename)  
+         data_df.to_csv('historical_data/'+filename)  
     print('All caught up..!')
     return data_df
 
-get_all_binance("ETHUSDT", "5m", save=True)
+# get_all_binance("ETHBUSD", "5m", save=True)
