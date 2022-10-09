@@ -6,7 +6,9 @@ import time
 from binance.client import Client
 from datetime import timedelta, datetime
 from dateutil import parser
-import operations as op
+#import operations as op
+import database.operations as op
+
 
 ### API
 df = op.getApi("556159355")
@@ -36,8 +38,8 @@ def minutes_of_new_data(symbol, kline_size, data, source):
 
 def get_all_binance(symbol, kline_size, save=False):
     filename = '%s-%s-data.csv' % (symbol, kline_size)
-    if os.path.isfile(filename):
-        data_df = pd.read_csv(filename)
+    if os.path.isfile('historical_data/'+filename):
+        data_df = pd.read_csv('historical_data/'+filename)
     else:
         data_df = pd.DataFrame()
     oldest_point, newest_point = minutes_of_new_data(
@@ -57,7 +59,8 @@ def get_all_binance(symbol, kline_size, save=False):
     data['timestamp'] = pd.to_datetime(data['timestamp'], unit='ms')
     if len(data_df) > 0:
         temp_df = pd.DataFrame(data)
-        data_df = data_df.append(temp_df).drop_duplicates(subset=['close_time'])
+        data_df = pd.concat([data_df,temp_df]).drop_duplicates(subset=['close_time'])
+        #data_df = data_df.append(temp_df).drop_duplicates(subset=['close_time'])
     else:
         data_df = data.drop_duplicates(subset=['close_time'])
     data_df.set_index('timestamp', inplace=True)
@@ -66,4 +69,4 @@ def get_all_binance(symbol, kline_size, save=False):
     print('All caught up..!')
     return data_df
 
-# get_all_binance("ETHBUSD", "5m", save=True)
+# get_all_binance("LUNCBUSD", "5m", save=True)
