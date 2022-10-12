@@ -31,12 +31,17 @@ def getUser(token):
 # Def addtoken
 def addTokenDb(data):
     sql = "insert into t_pair (pair, token) values (?,?)"
-    cur = db_con.cursor()
-    cur.execute(sql, data)
     global gcount
-    gcount = cur.rowcount
-    db_con.commit()  
-    db_con.close
+    try:
+        cur = db_con.cursor()
+        cur.execute(sql, data)
+        gcount = cur.rowcount
+        db_con.commit()  
+        db_con.close
+    except sqlite3.OperationalError:
+        gcount = 0  
+    except sqlite3.IntegrityError:
+        gcount = 0    
 
 # Def update ops
 def paramsAction(data):
@@ -280,11 +285,13 @@ def addTokenActions(m):
     else:   
        user = getUser(cid)
        markup = types.ReplyKeyboardMarkup()
+       item1 = types.KeyboardButton('/Add-Token')
        item = types.KeyboardButton('/List')
        markup.row(item)
+       markup.row(item1)
        if int(user['token'].values) == cid:
          addTokenDb(gdata)
-         bot.send_message(cid, 'Token added : ' + valor.upper(), parse_mode='Markdown', reply_markup=markup) if gcount == 1 else bot.send_message(cid, 'Error inserting pair, try again...', parse_mode='Markdown', reply_markup=markup)
+         bot.send_message(cid, 'Token added : ' + valor.upper(), parse_mode='Markdown', reply_markup=markup) if gcount == 1 else bot.send_message(cid, 'Error inserting pair: ' + valor.upper() + ', already exists, try again with other value...', parse_mode='Markdown', reply_markup=markup)
        else:    
          bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)                 
 
