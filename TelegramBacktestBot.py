@@ -219,9 +219,11 @@ def command_help(m):
 def historical(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    itemc = types.KeyboardButton('Cancel')
-    markup.row(itemc)
-    bot.send_message(cid, 'Select your pair in Upper Case, example ETHUBUSD', parse_mode='Markdown', reply_markup=markup)
+    df = pd.read_sql("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    bot.send_message(cid, 'Select the token you want to get the historical data', parse_mode='Markdown', reply_markup=markup)
     bot.register_next_step_handler_by_chat_id(cid, timeframe)
 
 def timeframe(m):
@@ -322,8 +324,8 @@ def listtokens(m):
     itemd = types.KeyboardButton('/List')
     markup.row(itemd)
     if  int(user['token'].values) == cid:
-        df = pd.read_sql("SELECT * FROM t_pair where token =" + str(cid) + " order by id",con=db_con)
-
+        df = pd.read_sql("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+        print("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id")
         for i in df.index:
             bot.send_message(cid, "*Pair: *" + str(df['pair'][i]) , parse_mode='Markdown')
         bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)
@@ -336,7 +338,7 @@ def listtokens(m):
 def deleteoken(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    df = pd.read_sql("SELECT * FROM t_pair where token =" + str(cid) + " order by id",con=db_con)
+    df = pd.read_sql("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['id'][i]) + ' - ' + str(df['pair'][i]))
         markup.row(itemc)
