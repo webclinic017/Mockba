@@ -41,7 +41,22 @@ def addTokenDb(data):
     except sqlite3.OperationalError:
         gcount = 0  
     except sqlite3.IntegrityError:
-        gcount = 0    
+        gcount = 0
+
+# Def deletetoken
+def deleteTokenDb(data):
+    sql = "delete from t_pair where id = ? and token = ?"
+    global gcount
+    try:
+        cur = db_con.cursor()
+        cur.execute(sql, data)
+        gcount = cur.rowcount
+        db_con.commit()  
+        db_con.close
+    except sqlite3.OperationalError:
+        gcount = 0  
+    except sqlite3.IntegrityError:
+        gcount = 0
 
 # Def update ops
 def paramsAction(data):
@@ -98,9 +113,9 @@ def command_help(m):
     cid = m.chat.id
     help_text = "Available options."
     markup = types.ReplyKeyboardMarkup()
-    item1 = types.KeyboardButton('/Add-Token')
-    item2 = types.KeyboardButton('/Delete-Token')
-    item3 = types.KeyboardButton('/List-Token')
+    item1 = types.KeyboardButton('/AddToken')
+    item2 = types.KeyboardButton('/DeleteToken')
+    item3 = types.KeyboardButton('/ListToken')
     item4 = types.KeyboardButton('/Historical')
     item5 = types.KeyboardButton('/backtest')
     item6 = types.KeyboardButton('/Listtrendmarket')
@@ -261,7 +276,7 @@ def gethistorical(m):
 
 ##########Add token
 
-@bot.message_handler(commands=['Add-Token'])
+@bot.message_handler(commands=['AddToken'])
 def addToken(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
@@ -285,16 +300,75 @@ def addTokenActions(m):
     else:   
        user = getUser(cid)
        markup = types.ReplyKeyboardMarkup()
-       item1 = types.KeyboardButton('/Add-Token')
+       item1 = types.KeyboardButton('/AddToken')
+       item2 = types.KeyboardButton('/ListToken')
        item = types.KeyboardButton('/List')
        markup.row(item)
        markup.row(item1)
+       markup.row(item2)
        if int(user['token'].values) == cid:
          addTokenDb(gdata)
          bot.send_message(cid, 'Token added : ' + valor.upper(), parse_mode='Markdown', reply_markup=markup) if gcount == 1 else bot.send_message(cid, 'Error inserting pair: ' + valor.upper() + ', already exists, try again with other value...', parse_mode='Markdown', reply_markup=markup)
        else:    
          bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)                 
 
+##########ListToken
+
+@bot.message_handler(commands=['ListToken'])
+def listtokens(m):
+    cid = m.chat.id
+    user = getUser(cid)
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/List')
+    markup.row(itemd)
+    if  int(user['token'].values) == cid:
+        df = pd.read_sql("SELECT * FROM t_pair where token =" + str(cid) + " order by id",con=db_con)
+
+        for i in df.index:
+            bot.send_message(cid, "*Pair: *" + str(df['pair'][i]) , parse_mode='Markdown')
+        bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')  
+
+##########Delete token
+
+@bot.message_handler(commands=['DeleteToken'])
+def deleteoken(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    df = pd.read_sql("SELECT * FROM t_pair where token =" + str(cid) + " order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['id'][i]) + ' - ' + str(df['pair'][i]))
+        markup.row(itemc)
+    bot.send_message(cid, 'Select the token you want remove', parse_mode='Markdown', reply_markup=markup)
+    bot.register_next_step_handler_by_chat_id(cid, deleteokenActions)
+
+def deleteokenActions(m):
+    cid = m.chat.id
+    valor = m.text
+    global gdata, gcount
+    gdata = (valor.split(" - ")[0],str(cid))
+    if valor == 'Cancel':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/Start')
+       item1 = types.KeyboardButton('/List')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else:   
+       user = getUser(cid)
+       markup = types.ReplyKeyboardMarkup()
+       item1 = types.KeyboardButton('/AddToken')
+       item2 = types.KeyboardButton('/ListToken')
+       item = types.KeyboardButton('/List')
+       markup.row(item)
+       markup.row(item1)
+       markup.row(item2)
+       if int(user['token'].values) == cid:
+         deleteTokenDb(gdata)
+         bot.send_message(cid, 'Token deleted : ' + valor.upper(), parse_mode='Markdown', reply_markup=markup) if gcount == 1 else bot.send_message(cid, 'Error deleting pair: ' + valor.upper() + ', value does not exists, try again with other value...', parse_mode='Markdown', reply_markup=markup)
+       else:    
+         bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)          
 
 # @bot.message_handler(commands=['trendtime'])
 # def trendtime(m):
