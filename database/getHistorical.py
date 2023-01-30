@@ -6,12 +6,13 @@ import time
 from binance.client import Client
 from datetime import timedelta, datetime
 from dateutil import parser
-#import operations as op
-import database.operations as op
+# import operations as op
+from database import operations
 
 
 ### API
-df = op.getApi("556159355")
+api_telegram = ""
+df = operations.getApi(api_telegram)
 # Getting api from database
 binance_api_key = df['api_key']
 binance_api_secret = df['api_secret']
@@ -22,7 +23,7 @@ batch_size = 750
 binance_client = Client(api_key=binance_api_key.to_string(index=False), api_secret=binance_api_secret.to_string(index=False))
 
 # Database conection
-db_con = op.db_con
+# db_con = operations.db_con
 
 ### FUNCTIONS
 def minutes_of_new_data(symbol, kline_size, data, source):

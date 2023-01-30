@@ -4,13 +4,12 @@ from telebot import types
 import sqlite3
 import pandas as pd
 from binance.client import Client
-import indicators.trend as tr
+from indicators import trend as tr
 from datetime import datetime
-import database.operations as operations
-import database.getHistorical as gh
+from database import getHistorical
+from database import operations
 
-
-# Telegram Botte voy a 
+# Telegram Bot
 API_TOKEN = '2096372558:AAFZtSi_8wHrfEQjJatdnYhDtEgkm8TaipM'
 db_con = operations.db_con
 
@@ -58,7 +57,7 @@ def deleteTokenDb(data):
     except sqlite3.IntegrityError:
         gcount = 0
 
-# Def update ops
+# Def paramsAction
 def paramsAction(data):
     sql = 'insert into parameters (trend, margingsell, margingbuy, forcesell, stoploss) values (?,?,?,?,?)'
     cur = db_con.cursor()
@@ -66,7 +65,7 @@ def paramsAction(data):
     db_con.commit()  
     db_con.close 
 
-# Def update ops
+# Def trendTime
 def trendTime(data):
     sql = 'insert into trend (trend,downtrend,uptrend) values (?,?,?)'
     cur = db_con.cursor()
@@ -113,26 +112,53 @@ def command_help(m):
     cid = m.chat.id
     help_text = "Available options."
     markup = types.ReplyKeyboardMarkup()
-    item1 = types.KeyboardButton('/AddToken')
-    item2 = types.KeyboardButton('/DeleteToken')
-    item3 = types.KeyboardButton('/ListToken')
-    item4 = types.KeyboardButton('/Historical')
-    item5 = types.KeyboardButton('/backtest')
-    item6 = types.KeyboardButton('/Listtrendmarket')
-    item7 = types.KeyboardButton('/params')
-    item8 = types.KeyboardButton('/trendtime')
-    item9 = types.KeyboardButton('/Listparams')
-    item10 = types.KeyboardButton('/Listtrendparams')
-    item11 = types.KeyboardButton('/List')
-    item12 = types.KeyboardButton('/Start')
+    item1 = types.KeyboardButton('/Tokens')
+    item2 = types.KeyboardButton('/Historical')
+    item3 = types.KeyboardButton('/Listing')
+    item4 = types.KeyboardButton('/backtest')
+    item5 = types.KeyboardButton('/params')
+    item6 = types.KeyboardButton('/trendtime')
+    item7 = types.KeyboardButton('/List')
+    item8 = types.KeyboardButton('/Start')
     markup.row(item1, item2)
     markup.row(item3, item4)
     markup.row(item5, item6)
     markup.row(item7, item8)
-    markup.row(item9, item10)
-    markup.row(item11, item12)
     bot.send_message(cid, help_text, reply_markup=markup) 
 
+@bot.message_handler(commands=['Tokens'])
+def command_tokens(m):
+    cid = m.chat.id
+    help_text = "Available options."
+    markup = types.ReplyKeyboardMarkup()
+    item1 = types.KeyboardButton('/AddToken')
+    item2 = types.KeyboardButton('/DeleteToken')
+    item3 = types.KeyboardButton('/List')
+    markup.row(item1)
+    markup.row(item2)
+    markup.row(item3)
+    bot.send_message(cid, help_text, reply_markup=markup)
+
+@bot.message_handler(commands=['Listing'])
+def command_tokens(m):
+    cid = m.chat.id
+    help_text = "Available options."
+    markup = types.ReplyKeyboardMarkup()
+    item1 = types.KeyboardButton('/ListToken')
+    item2 = types.KeyboardButton('/Listtrendmarket')
+    item3 = types.KeyboardButton('/Listparams')
+    item4 = types.KeyboardButton('/Listtrendparams')
+    item5 = types.KeyboardButton('/List')
+    markup.row(item1)
+    markup.row(item2)
+    markup.row(item3)
+    markup.row(item4)
+    markup.row(item5)
+    bot.send_message(cid, help_text, reply_markup=markup)     
+
+####################################################################################################
+####################################################################################################
+####################################################################################################    
 
 # @bot.message_handler(commands=['listparams'])
 # def listparams(m):
@@ -215,6 +241,8 @@ def command_help(m):
 #     else:    
 #         bot.send_message(cid, "User not autorized", parse_mode='Markdown')
 
+########## Historical
+
 @bot.message_handler(commands=['Historical'])
 def historical(m):
     cid = m.chat.id
@@ -271,7 +299,8 @@ def gethistorical(m):
        markup.row(item)
        if int(user['token'].values) == cid:
          bot.send_message(cid, 'Getting historical data of ' +  valor + ', this can take some time, be pacient...')
-         gh.get_all_binance(gpair, valor, save=True)
+         getHistorical.api_telegram = str(user['token'].values)
+         getHistorical.get_all_binance(gpair, valor, save=True)
          bot.send_message(cid, 'Done !!', parse_mode='Markdown', reply_markup=markup)
        else:    
          bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup) 
@@ -325,7 +354,7 @@ def listtokens(m):
     markup.row(itemd)
     if  int(user['token'].values) == cid:
         df = pd.read_sql("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id",con=db_con)
-        print("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id")
+        # print("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id")
         for i in df.index:
             bot.send_message(cid, "*Pair: *" + str(df['pair'][i]) , parse_mode='Markdown')
         bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)
@@ -395,17 +424,60 @@ def deleteokenActions(m):
 #     else:    
 #         bot.send_message(cid, "User not autorized", parse_mode='Markdown') 
 
-# @bot.message_handler(commands=['listtrendmarket'])
-# def trend(m):
-#     cid = m.chat.id
-#     markup = types.ReplyKeyboardMarkup()
-#     itemd = types.KeyboardButton('/List')
-#     markup.row(itemd)
-#     if  int(user['token'].values) == cid:
-#         trendParams = pd.read_sql("SELECT * FROM trend",con=db_con)
-#         bot.send_message(cid, 'Trend in real time ' + str(tr.trendBot(trendParams['trend'][0])), parse_mode='Markdown', reply_markup=markup)                        
-#     else:    
-#         bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         
+##########List trend
+@bot.message_handler(commands=['Listtrendmarket'])
+def historical(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    df = pd.read_sql("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    bot.send_message(cid, 'Select the token you want to get the trend data', parse_mode='Markdown', reply_markup=markup)
+    bot.register_next_step_handler_by_chat_id(cid, timeframeTrend)
+
+def timeframeTrend(m):
+    cid = m.chat.id
+    global gpair
+    gpair = m.text.upper()
+    if gpair == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/Start')
+       item1 = types.KeyboardButton('/List')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else:   
+       markup = types.ReplyKeyboardMarkup()
+       item1 = types.KeyboardButton('1m')
+       item2 = types.KeyboardButton('5m')
+       item3 = types.KeyboardButton('1h')
+       item4 = types.KeyboardButton('2h')
+       item5 = types.KeyboardButton('4h')
+       item6 = types.KeyboardButton('1d')
+       item = types.KeyboardButton('/List')
+       itemc = types.KeyboardButton('Cancel')
+       markup.row(item1, item2, item3)
+       markup.row(item4, item5, item6)
+       markup.row(item)
+       markup.row(itemc)
+       bot.send_message(cid, 'Select your timeframe', parse_mode='Markdown', reply_markup=markup)   
+       bot.register_next_step_handler_by_chat_id(cid, trend)
+
+def trend(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/List')
+    markup.row(itemd)
+    valor = m.text
+    user = getUser(cid)
+    if  int(user['token'].values) == cid:
+        trendParams = pd.read_sql("SELECT * FROM trend where token = '" + str(cid) + "' and pair ='" + valor + "'",con=db_con)
+        a = trendParams.index.size
+        print(gpair, valor)
+        bot.send_message(cid, 'Trend in real time ' + str(tr.trendBot(trendParams['trend'][0],gpair, valor)) if a != 0 else 'No records found', parse_mode='Markdown', reply_markup=markup)                        
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         
 
 # default handler for every other text
 @bot.message_handler(func=lambda message: True, content_types=['text'])
