@@ -73,8 +73,8 @@ def trendTime(data):
     db_con.commit()  
     db_con.close              
 
-def getTicker():
-   url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1d"
+def getTicker(pair, interval):
+   url = "https://api.binance.com/api/v3/klines?symbol="+pair+"E&interval="+interval
    r = requests.get(url)
    df = pd.DataFrame(r.json()) 
    return df 

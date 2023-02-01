@@ -6,9 +6,8 @@ import time
 from binance.client import Client
 from datetime import timedelta, datetime
 from dateutil import parser
-# import operations as op
+# import operations
 from database import operations
-
 
 ### API
 api_telegram = ""
@@ -22,8 +21,9 @@ binsizes = {"1m": 1, "5m": 5, "1h": 60, "2h": 120, "4h": 240, "1d": 1440}
 batch_size = 750
 binance_client = Client(api_key=binance_api_key.to_string(index=False), api_secret=binance_api_secret.to_string(index=False))
 
-# Database conection
-# db_con = operations.db_con
+#Database conection
+db_con = operations.db_con
+# postgre_con = create_engine('postgresql+psycopg2://openbizview:openbizview@localhost/mockba')
 
 ### FUNCTIONS
 def minutes_of_new_data(symbol, kline_size, data, source):
@@ -47,7 +47,7 @@ def get_all_binance(symbol, kline_size, save=False):
         symbol, kline_size, data_df, source="binance")
     delta_min = (newest_point - oldest_point).total_seconds()/60
     available_data = math.ceil(delta_min/binsizes[kline_size])
-    if oldest_point == datetime.strptime("01 Jan 2020", '%d %b %Y'):
+    if oldest_point == datetime.strptime("01 Jan 2021", '%d %b %Y'):
         print('Downloading all available %s data for %s. Be patient..!' %
               (kline_size, symbol))
     else:
@@ -66,8 +66,8 @@ def get_all_binance(symbol, kline_size, save=False):
         data_df = data.drop_duplicates(subset=['close_time'])
     data_df.set_index('timestamp', inplace=True)
     if save:
-         data_df.to_csv('historical_data/'+filename)  
+         data_df.to_csv('historical_data/'+filename)
     print('All caught up..!')
     return data_df
 
-# get_all_binance("LUNCBUSD", "5m", save=True)
+#get_all_binance("LUNCBUSD", "5m", save=True)
