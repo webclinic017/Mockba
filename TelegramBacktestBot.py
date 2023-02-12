@@ -188,6 +188,8 @@ def command_tokens(m):
     item2 = types.KeyboardButton('/Listtrendmarket')
     item3 = types.KeyboardButton('/Listparams')
     item4 = types.KeyboardButton('/Listtrendparams')
+    item4 = types.KeyboardButton('/ListBinanceGainers')
+    item4 = types.KeyboardButton('/ListBinanceTopVolume')
     item5 = types.KeyboardButton('/List')
     markup.row(item1)
     markup.row(item2)
@@ -492,6 +494,7 @@ def gethistorical(m):
        if int(user['token'].values) == cid:
          bot.send_message(cid, 'Getting historical data of ' +  valor + ', this can take some time, be pacient...')
          getHistorical.api_telegram = str(user['token'].values)
+         getHistorical.schema = "backtest"
          getHistorical.get_all_binance(gpair, valor, save=True)
          bot.send_message(cid, 'Done !!', parse_mode='Markdown', reply_markup=markup)
        else:    
