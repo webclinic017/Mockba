@@ -1,5 +1,8 @@
+import os
+from dotenv import load_dotenv
 import telebot
 import requests
+import json
 from telebot import types
 import sqlite3
 import pandas as pd
@@ -8,6 +11,17 @@ from indicators import trend as tr
 from datetime import datetime
 from database import getHistorical
 from database import operations
+import psycopg2
+
+# loading the .env file
+load_dotenv()
+
+# access the environment variables
+# access the environment variables
+host = os.getenv("HOST")
+database = os.getenv("DATABASE")
+user = os.getenv("USR")
+password = os.getenv("PASSWD")
 
 # Telegram Bot
 API_TOKEN = '2096372558:AAFZtSi_8wHrfEQjJatdnYhDtEgkm8TaipM'
@@ -28,56 +42,93 @@ gp3 = "0"
 gp4 = "0"
 gp5 = "0"
 
+
 # Def get next ops
 def getUser(token):
-    df = pd.read_sql("SELECT * FROM t_login where token = " + str(token) ,con=db_con)
+    df = pd.read_sql("SELECT * FROM backtest.t_login where token = " + str(token) ,con=db_con)
     return df
 
 # Def addtoken
 def addTokenDb(data):
-    sql = "insert into t_pair (pair, token) values (?,?)"
     global gcount
     try:
-        cur = db_con.cursor()
-        cur.execute(sql, data)
-        gcount = cur.rowcount
-        db_con.commit()  
-        db_con.close
-    except sqlite3.OperationalError:
-        gcount = 0  
-    except sqlite3.IntegrityError:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = "insert into backtest.t_pair (pair, token) values (%s, %s)"
+        cursor.execute(sql, data)
+        gcount = cursor.rowcount
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
         gcount = 0
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close()    
 
 # Def deletetoken
 def deleteTokenDb(data):
-    sql = "delete from t_pair where id = ? and token = ?"
     global gcount
     try:
-        cur = db_con.cursor()
-        cur.execute(sql, data)
-        gcount = cur.rowcount
-        db_con.commit()  
-        db_con.close
-    except sqlite3.OperationalError:
-        gcount = 0  
-    except sqlite3.IntegrityError:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = "delete from backtest.t_pair where id = %s and token = %s"
+        cursor.execute(sql, data)
+        gcount = cursor.rowcount
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
         gcount = 0
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close() 
 
 # Def paramsAction
 def paramsAction(data):
-    sql = 'insert into parameters (trend, margingsell, margingbuy, takeprofit, stoploss, token, pair, timeframe) values (?,?,?,?,?,?,?,?)'
-    cur = db_con.cursor()
-    cur.execute(sql, data)
-    db_con.commit()  
-    db_con.close 
+    try:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = "insert into backtest.parameters (trend, margingsell, margingbuy, takeprofit, stoploss, token, pair, timeframe) values (%s,%s,%s,%s,%s,%s,%s,%s)"
+        cursor.execute(sql, data)
+        gcount = cursor.rowcount
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
+        gcount = 0
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close() 
 
 # Def trendTime
 def trendTime(data):
-    sql = 'insert into trend (trend,downtrend,uptrend) values (?,?,?)'
-    cur = db_con.cursor()
-    cur.execute(sql, data)
-    db_con.commit()  
-    db_con.close              
+    try:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = "insert into backtest.trend (trend,downtrend,uptrend) values (%s,%s,%s)"
+        cursor.execute(sql, data)
+        gcount = cursor.rowcount
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
+        gcount = 0
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close()            
 
 def getTicker(pair, interval):
    url = "https://api.binance.com/api/v3/klines?symbol="+pair+"E&interval="+interval
@@ -188,14 +239,16 @@ def command_tokens(m):
     item2 = types.KeyboardButton('/Listtrendmarket')
     item3 = types.KeyboardButton('/Listparams')
     item4 = types.KeyboardButton('/Listtrendparams')
-    item4 = types.KeyboardButton('/ListBinanceGainers')
-    item4 = types.KeyboardButton('/ListBinanceTopVolume')
-    item5 = types.KeyboardButton('/List')
+    item5 = types.KeyboardButton('/ListBinanceGainers')
+    item6 = types.KeyboardButton('/ListBinanceTopVolume')
+    item7 = types.KeyboardButton('/List')
     markup.row(item1)
     markup.row(item2)
     markup.row(item3)
     markup.row(item4)
     markup.row(item5)
+    markup.row(item6)
+    markup.row(item7)
     bot.send_message(cid, help_text, reply_markup=markup)  
 
 # global
@@ -238,7 +291,7 @@ def listparams(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
     global gnext
-    df = pd.read_sql("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['pair'][i]))
         markup.row(itemc)
@@ -254,7 +307,7 @@ def params(m):
     markup.row(itemd)
     user = getUser(cid)
     if  int(user['token'].values) == cid:
-        df = pd.read_sql('SELECT * FROM parameters order by id',con=db_con)
+        df = pd.read_sql('SELECT * FROM backtest.parameters order by id',con=db_con)
         a = df.index.size
         if a != 0:
             for i in df.index:
@@ -272,7 +325,7 @@ def listtrendparams(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
     global gnext
-    df = pd.read_sql("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['pair'][i]))
         markup.row(itemc)
@@ -288,7 +341,7 @@ def listtrendparams(m):
     markup.row(itemd)
     user = getUser(cid)
     if  int(user['token'].values) == cid:
-        df = pd.read_sql('SELECT * FROM trend order by id',con=db_con)
+        df = pd.read_sql('SELECT * FROM backtest.trend order by id',con=db_con)
         a = df.index.size
         if a != 0:
             for i in df.index:
@@ -300,6 +353,70 @@ def listtrendparams(m):
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')    
 
 ##############List trend Params #################################################################
+
+##############ListBinanceGainers #################################################################
+@bot.message_handler(commands=['ListBinanceGainers'])
+def listBinanceGainers(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext
+    # Send the request to the API
+    bot.send_message(cid,"-----Fetching from Binance-----")
+    response = requests.get(operations.binance_url)
+    # Check if the request was successful
+    if response.status_code == 200:
+        # Convert the response to JSON
+        data = json.loads(response.text)
+    
+        # Get the list of gainers
+        gainers = []
+        for coin in data:
+            if ( not (coin['symbol'].startswith("BUSD") or coin['symbol'].startswith("USDT")) and coin['symbol'].endswith("BUSD") or coin['symbol'].endswith("USDT")) and float(coin['priceChangePercent']) > 15:
+                gainers.append(coin)
+        
+        # Sort the gainers by percentage change
+        gainers.sort(key=lambda x: float(x['priceChangePercent']), reverse=True)
+    
+        # Print the gainers
+        bot.send_message(cid, "Top gainers of pairs ending in USDT or BUSD \n")
+        for coin in gainers:
+            bot.send_message(cid, f"Symbol: {coin['symbol']} Price Change: {coin['priceChangePercent']}%", parse_mode='Markdown', reply_markup=markup)
+        bot.send_message(cid, 'Done')    
+    else:
+        # Print an error message
+        print("Failed to retrieve market data")
+        bot.send_message(cid, "Failed to retrieve market data", parse_mode='Markdown', reply_markup=markup)
+##############ListBinanceGainers #################################################################
+
+##############ListBinanceTopVolume #################################################################
+@bot.message_handler(commands=['ListBinanceTopVolume'])
+def listBinanceTopVolume(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext
+    # Send the request to the API
+    bot.send_message(cid,"-----Fetching from Binance-----")
+    response = requests.get(operations.binance_url)
+    # Check if the request was successful
+    if response.status_code == 200:
+        # Retrieve the list of dictionaries from the response
+        data = response.json()
+
+        # Filter the list of dictionaries to exclude pairs starting with "BUSD" or "USDT" and ending with "BUSD"
+        filtered_data = [d for d in data if not (d['symbol'].startswith("BUSD") or d['symbol'].startswith("USDT")) and d['symbol'].endswith("BUSD") or d['symbol'].endswith("USDT")]
+
+        # Sort the filtered data by the volume in descending order
+        sorted_data = sorted(filtered_data, key=lambda x: x['quoteVolume'], reverse=True)
+
+        # Print the top 10 pairs with the highest volume
+        bot.send_message(cid,"Top volume of pairs ending in USDT or BUSD \n")
+        for i, d in enumerate(sorted_data[:10]):
+            bot.send_message(cid,f"{i + 1}. {d['symbol']}: {format(float(d['quoteVolume']),',.2f')}")
+        bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)    
+    else:
+        # If the request fails, print an error message
+        bot.send_message(cid,"Failed to retrieve data from Binance API")
+##############ListBinanceGainers #################################################################
 
 
 # @bot.message_handler(commands=['backtest'])
@@ -338,7 +455,7 @@ def addparams(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
     global gnext
-    df = pd.read_sql("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['pair'][i]))
         markup.row(itemc)
@@ -467,7 +584,7 @@ def historical(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
     global gnext
-    df = pd.read_sql("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['pair'][i]))
         markup.row(itemc)
@@ -545,10 +662,11 @@ def listtokens(m):
     cid = m.chat.id
     user = getUser(cid)
     if  int(user['token'].values) == cid:
-        df = pd.read_sql("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+        df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
         # print("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id")
         for i in df.index:
             bot.send_message(cid, "*Pair: *" + str(df['pair'][i]) , parse_mode='Markdown')
+        bot.send_message(cid, "Done..")    
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')  
 
@@ -558,7 +676,7 @@ def listtokens(m):
 def deleteoken(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    df = pd.read_sql("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['id'][i]) + ' - ' + str(df['pair'][i]))
         markup.row(itemc)
@@ -620,7 +738,7 @@ def deleteokenActions(m):
 def listtrendmarket(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    df = pd.read_sql("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['pair'][i]))
         markup.row(itemc)
@@ -665,9 +783,10 @@ def trend(m):
     user = getUser(cid)
     
     if  int(user['token'].values) == cid:
-        trendParams = pd.read_sql("SELECT * FROM trend where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "'",con=db_con)
+        trendParams = pd.read_sql("SELECT * FROM backtest.trend where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "'",con=db_con)
         a = trendParams.index.size
-        bot.send_message(cid, 'Trend in real time ' + str(tr.trendBot(trendParams['trend'][0],gpair, valor)) if a != 0 else 'No records found', parse_mode='Markdown', reply_markup=markup)                        
+        bot.send_message(cid, 'Trend in real time ' + str(tr.trendBot(trendParams['trend'][0],gpair, valor)) if a != 0 else 'No records found', parse_mode='Markdown', reply_markup=markup)    
+        bot.send_message(cid, "Done..")                     
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         
 

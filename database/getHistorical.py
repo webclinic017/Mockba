@@ -10,8 +10,8 @@ from dateutil import parser
 from database import operations
 
 ### API
-api_telegram = ""
-schema = ""
+api_telegram = "123"
+schema = "backtest"
 df = operations.getApi(api_telegram, schema)
 # Getting api from database
 binance_api_key = df['api_key']
@@ -23,7 +23,7 @@ batch_size = 750
 binance_client = Client(api_key=binance_api_key.to_string(index=False), api_secret=binance_api_secret.to_string(index=False))
 
 #Database conection
-db_con = operations.engine
+db_con = operations.db_con
 #Dataframe
 data_df = ""
 
@@ -41,11 +41,11 @@ def minutes_of_new_data(symbol, kline_size, data, source):
 
 def get_all_binance(symbol, kline_size, save=False):
     global data_df
-    filename = symbol + "_" + kline_size
-    check_table_exists = f"SELECT count(*) FROM information_schema.tables WHERE table_name = '{filename}';"
+    tablename = symbol + "_" + kline_size
+    check_table_exists = f"SELECT count(*) FROM information_schema.tables WHERE table_name = '{tablename}';"
     table_exists = pd.read_sql(check_table_exists, db_con).iloc[0, 0] > 0
     if table_exists:
-        data_df = pd.read_sql('Select * from public."' + filename + '"', db_con)
+        data_df = pd.read_sql('Select * from public."' + tablename + '"', db_con)
     else:
         data_df = pd.DataFrame()
     oldest_point, newest_point = minutes_of_new_data(
@@ -71,8 +71,8 @@ def get_all_binance(symbol, kline_size, save=False):
         data_df = data.drop_duplicates(subset=['close_time'])
     data_df.set_index('timestamp', inplace=True)
     if save:
-         data_df.to_sql(filename, db_con, if_exists='append')
+         data_df.to_sql(tablename, db_con, if_exists='append')
     print('All caught up..!')
     return data_df
 
-get_all_binance("LUNCBUSD", "5m", save=True)
+# get_all_binance("LUNCBUSD", "5m", save=True)
