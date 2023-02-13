@@ -380,7 +380,7 @@ def listBinanceGainers(m):
         # Print the gainers
         bot.send_message(cid, "Top gainers of pairs ending in USDT or BUSD \n")
         for coin in gainers:
-            bot.send_message(cid, f"Symbol: {coin['symbol']} Price Change: {coin['priceChangePercent']}%", parse_mode='Markdown', reply_markup=markup)
+            bot.send_message(cid, f"Symbol: {coin['symbol']} Price Change: {format(float(coin['priceChangePercent']),',.2f')}%  Price: {format(float(coin['lastPrice']),',.2f')}", parse_mode='Markdown', reply_markup=markup)
         bot.send_message(cid, 'Done')    
     else:
         # Print an error message
