@@ -1,5 +1,6 @@
 # Mockba V2
-# New features: MA, RSI, Multiuser, Multitoken, Multi timeframe
+# New features: MA, RSI, Supertrend, Multiuser, Multitoken, Multi timeframe
+# Postgre Database
 # Documentation soon
 
 1. How to use it
