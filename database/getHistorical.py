@@ -11,8 +11,7 @@ from database import operations
 
 ### API
 api_telegram = "123"
-schema = "backtest"
-df = operations.getApi(api_telegram, schema)
+df = operations.getApi(api_telegram)
 # Getting api from database
 binance_api_key = df['api_key']
 binance_api_secret = df['api_secret']

@@ -20,10 +20,10 @@ binance_url = "https://api.binance.com/api/v3/ticker/24hr"
 
 # Def get api
 # Return the api key
-def getApi(token, schema):
+def getApi(token):
     global df
     try:
-       df = pd.read_sql("SELECT * FROM " + schema + ".t_api where token='" + token + "'", con=db_con)
+       df = pd.read_sql("SELECT * FROM t_api where token='" + token + "'", con=db_con)
     except Exception as e:
         print(str(e))   
     return df

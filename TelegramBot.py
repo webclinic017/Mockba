@@ -1,95 +1,177 @@
-from os import defpath, error
+import os
+from dotenv import load_dotenv
 import telebot
-import apis as api
 import requests
+import json
 from telebot import types
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import sqlite3
 import pandas as pd
 from binance.client import Client
-import trend as tr
+from indicators import trend as tr
+from datetime import datetime
+from database import getHistorical
+from database import operations
+import psycopg2
 
+# loading the .env file
+load_dotenv()
+
+# access the environment variables
+host = os.getenv("HOST")
+database = os.getenv("DATABASE")
+user = os.getenv("USR")
+password = os.getenv("PASSWD")
 
 # Telegram Bot
-API_TOKEN = ''
-api_key = api.Api().api_key
-api_secret = api.Api().api_secret
-client = Client(api_key, api_secret)
-db_con = sqlite3.connect('/var/lib/system/storage/mockba.db', check_same_thread=False)
-##db_con = sqlite3.connect('/opt/domgarmining/storage/mockba.db', check_same_thread=False)
-# db_con = sqlite3.connect('storage/mockba.db', check_same_thread=False)
+API_TOKEN = '1042444870:AAHEuYUbs2YJrGDUEfd1ZjvomJafqCStMKM'
+db_con = operations.db_con
+
+# Global
+final_result = []
+gyear = ""
+gmonth = ""
+gdata = ""
+gframe = ""
+gpair = ""
+gcount = 0
+gnext = ""
+gp1 = "0"
+gp2 = "0"
+gp3 = "0"
+gp4 = "0"
+gp5 = "0"
+
 
 # Def get next ops
 def getUser(token):
-    df = pd.read_sql("SELECT * FROM t_login where token = '" + token + "'" ,con=db_con)
+    df = pd.read_sql("SELECT * FROM backtest.t_login where token = " + str(token) ,con=db_con)
     return df
 
-# Def update ops
-def enable_bot():
-    sql = 'update t_signal set status = 1'
-    cur = db_con.cursor()
-    cur.execute(sql)
-    db_con.commit() 
-    db_con.close
+# Def addtoken
+def addTokenDb(data):
+    global gcount
+    try:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = "insert into backtest.t_pair (pair, token) values (%s, %s)"
+        cursor.execute(sql, data)
+        gcount = cursor.rowcount
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
+        gcount = 0
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close()    
 
-# Def update ops
-def disable_bot():
-    sql = 'update t_signal set status = 0'
-    cur = db_con.cursor()
-    cur.execute(sql)
-    db_con.commit()  
-    db_con.close
+# Def deletetoken
+def deleteTokenDb(data):
+    global gcount
+    try:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = "delete from backtest.t_pair where id = %s and token = %s"
+        cursor.execute(sql, data)
+        gcount = cursor.rowcount
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
+        gcount = 0
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close() 
 
-# Def update ops
-def restart_bot():
-    sql = "insert into trader values (0,0,0,0,0,0,0,'normaltrend','0','0')"
-    cur = db_con.cursor()
-    cur.execute(sql)
-    db_con.commit()  
-    db_con.close  
-
-# Def update ops
+# Def paramsAction
 def paramsAction(data):
-    sql = 'insert into parameters (trend, margingsell, margingbuy, forcesell, stoploss) values (?,?,?,?,?)'
-    cur = db_con.cursor()
-    cur.execute(sql, data)
-    db_con.commit()  
-    db_con.close 
+    try:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = "insert into backtest.parameters (trend, margingsell, margingbuy, takeprofit, stoploss, token, pair, timeframe) values (%s,%s,%s,%s,%s,%s,%s,%s)"
+        cursor.execute(sql, data)
+        gcount = cursor.rowcount
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
+        gcount = 0
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close() 
 
-# Def update ops
+# Def trendTime
 def trendTime(data):
-    sql = 'insert into trend (trend,downtrend,uptrend) values (?,?,?)'
-    cur = db_con.cursor()
-    cur.execute(sql, data)
-    db_con.commit()  
-    db_con.close              
+    try:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = "insert into backtest.trend (trend,downtrend,uptrend,token,pair,timeframe) values (%s,%s,%s,%s,%s,%s)"
+        cursor.execute(sql, data)
+        gcount = cursor.rowcount
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
+        gcount = 0
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close() 
 
-def getTicker():
-   url = "https://api.binance.com/api/v3/klines?symbol=ETHUSDT&interval=1d"
+# Def indicators, MA and RSI
+def indicators(data, indicator):
+    try:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = "insert into backtest.indicators (indicator,value,token,timeframe) values (%s,%s,%s,%s)"
+        cursor.execute(sql, data)
+        gcount = cursor.rowcount
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
+        gcount = 0
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close()                         
+
+def getTicker(pair, interval):
+   url = "https://api.binance.com/api/v3/klines?symbol="+pair+"E&interval="+interval
    r = requests.get(url)
    df = pd.DataFrame(r.json()) 
    return df 
 
 bot = telebot.TeleBot(API_TOKEN)
-final_result = []
-gyear = ""
-gmonth = ""
-gdata = ""
 ########################################################################################################
 ###############################Operaciones para manejar en el Bot#######################################
 ########################################################################################################
 # only used for console output now
-'''    
 def listener(messages):
-    """
-    When new messages arrive TeleBot will call this function.
-    """
-    for m in messages:
-        if m.content_type == 'text':
-            # print the sent message to the console
-            print(str(m.chat.first_name) + " [" + str(m.chat.id) + "]: " + m.text)
+   """
+   When new messages arrive TeleBot will call this function.
+   """
+   for m in messages:
+       if m.content_type == 'text':
+           # print the sent message to the console
+           print(str(m.chat.first_name) + " [" + str(m.chat.id) + "]: " + m.text)
 
-    bot.set_update_listener(listener)  # register listener            
-'''
+   bot.set_update_listener(listener)  # register listener            
+
 
 # Comando inicio
 @bot.message_handler(commands=['start'])
@@ -97,311 +179,811 @@ def command_start(m):
     cid = m.chat.id
     nom = m.chat.first_name
     bot.send_message(cid,
-                    "Welcome to Mockba " + str(cid))
-    command_help(m)
+                    "Welcome to Mockba " + str(nom) + '-' + str(cid) + ", with this bot you can, backtest, load hitorical data, change parameter for backtest, parameters for trend, list trend, list parameters and check real time trend " + str(nom))
+    command_list(m)
+
+def clear_message_text(message):
+    # edit the message text with an empty string
+    bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id, text='')
+
+@bot.message_handler(commands=['List'])
+def command_list(m):
+    cid = m.chat.id
+    help_text = "Available options."
+    # Define the buttons
+    button1 = InlineKeyboardButton("Set Enviroment (Testnet or Mainnet)", callback_data="SetEnv")
+    button2 = InlineKeyboardButton("Tokens Menu", callback_data="TokensMenu")
+    button3 = InlineKeyboardButton("Historical", callback_data="Historical")
+    button4 = InlineKeyboardButton("List Menu", callback_data="ListMenu")
+    button5 = InlineKeyboardButton("Params Menu", callback_data="ParamsMenu")
+    button6 = InlineKeyboardButton("Run Backtest", callback_data="Backtest")
+    button7 = InlineKeyboardButton("List", callback_data="List")
+    button8 = InlineKeyboardButton("Start", callback_data="Start")
+
+    # Create a nested list of buttons
+    buttons = [[button1], [button2, button3, button4], [button5, button6, button7], [button8]]
+
+    # Order the buttons in the second row
+    buttons[1].sort(key=lambda btn: btn.text)
+
+    # Create the keyboard markup
+    reply_markup = InlineKeyboardMarkup(buttons)             
+    bot.send_message(cid, help_text, reply_markup=reply_markup)
 
 
-@bot.message_handler(commands=['list'])
-def command_help(m):
+# Callback_Handler
+# This code creates a dictionary called options that maps the call.data to the corresponding function. 
+# The get() method is used to retrieve the function based on the call.data. If the function exists
+# , it is called passing the call.message as argument. 
+# This approach avoids the need to use if statements to check the value of call.data for each possible option.
+@bot.callback_query_handler(func=lambda call: True)
+def callback_handler(call):
+    cid = call.message.chat.id
+    # Define the mapping between call.data and functions
+    options = {
+        'TokensMenu': tokens,
+        'AddToken': addToken,
+        'DeleteToken': deleteToken,
+        'List' : command_list,
+        'Historical': historical,
+        'ListMenu': listMenu,
+        'ListTokens': listTokens,
+        'Listtrendmarket': listtrendmarket,
+        'Listparams': listparams,
+        'Listtrendparams': listtrendparams,
+        'ListBinanceGainers': listBinanceGainers,
+        'ListBinanceTopVolume': listBinanceTopVolume,
+    }
+    # Get the function based on the call.data
+    func = options.get(call.data)
+
+    # Call the function if it exists
+    if func:
+        func(call.message)    
+    
+@bot.message_handler(commands=['ParamsMenu'])
+def paramsmenu(m):
     cid = m.chat.id
     help_text = "Available options."
     markup = types.ReplyKeyboardMarkup()
-    itema = types.KeyboardButton('/tradehistory')
-    itemb = types.KeyboardButton('/enablebot')
-    itemc = types.KeyboardButton('/disablebot')
-    iteme = types.KeyboardButton('/trader')
-    itemj = types.KeyboardButton('/listtrendmarket')
-    itemk = types.KeyboardButton('/listparams')
-    iteml = types.KeyboardButton('/listtrendparams')
-    itemf = types.KeyboardButton('/botstatus')
-    itemg = types.KeyboardButton('/resetbot')
-    itemh = types.KeyboardButton('/params')
-    itemi = types.KeyboardButton('/trendtime')
-    itemd = types.KeyboardButton('/list')
-    markup.row(itema)
-    markup.row(iteme)
-    markup.row(itemb)
-    markup.row(itemj)
-    markup.row(itemk)
-    markup.row(iteml)
-    markup.row(itemc)
-    markup.row(itemg)
-    markup.row(itemh)
-    markup.row(itemi)
-    markup.row(itemf)
-    markup.row(itemd)
-    bot.send_message(cid, help_text, reply_markup=markup) 
-
-
-
-
-@bot.message_handler(commands=['listparams'])
-def listparams(m):
-    cid = m.chat.id
-    markup = types.ReplyKeyboardMarkup()
-    itemd = types.KeyboardButton('/list')
-    markup.row(itemd)
-    # print(cid)
-    user = getUser(str(cid))
-    if  int(user['token'].values) == cid:
-        df = pd.read_sql('SELECT * FROM parameters order by id',con=db_con)
-
-        for i in df.index:
-            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nMargingSell: *" + str(df['margingsell'][i]) + "\n*MargingBuy: *" + str(df['margingbuy'][i]) + "\n*ForceSell: *" + str(df['forcesell'][i]) + "\n*StopLoss: *" + str(df['stoploss'][i]) , parse_mode='Markdown')
-        bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)
-    else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown')     
-
-@bot.message_handler(commands=['listtrendparams'])
-def listtrend(m):
-    cid = m.chat.id
-    markup = types.ReplyKeyboardMarkup()
-    itemd = types.KeyboardButton('/list')
-    markup.row(itemd)
-    user = getUser(str(cid))
-    if  int(user['token'].values) == cid:
-        df = pd.read_sql('SELECT * FROM trend order by id',con=db_con)
-        for i in df.index:
-            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nDowntrend: *" + str(df['downtrend'][i]) + "\n*Uptrend: *" + str(df['uptrend'][i]), parse_mode='Markdown')
-        bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)
-    else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown')        
-
-
-@bot.message_handler(commands=['listtrendmarket'])
-def trend(m):
-    cid = m.chat.id
-    markup = types.ReplyKeyboardMarkup()
-    itemd = types.KeyboardButton('/list')
-    markup.row(itemd)
-    user = getUser(str(cid))
-    if  int(user['token'].values) == cid:
-        trendParams = pd.read_sql("SELECT * FROM trend",con=db_con)
-        bot.send_message(cid, 'Trend in real time ' + str(tr.trendBot(trendParams['trend'][0])), parse_mode='Markdown', reply_markup=markup)                    
-    else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown') 
-        
-@bot.message_handler(commands=['enablebot'])
-def actautobot(m):
-    cid = m.chat.id
-    markup = types.ReplyKeyboardMarkup()
-    itemd = types.KeyboardButton('/list')
-    markup.row(itemd)
-    user = getUser(str(cid))
-    if int(user['token'].values) == cid:
-        enable_bot()
-        bot.send_message(cid, "Bot enabled....", parse_mode='Markdown', reply_markup=markup)
-    else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)
-
-
-@bot.message_handler(commands=['disablebot'])
-def dautobot(m):
-    cid = m.chat.id
-    markup = types.ReplyKeyboardMarkup()
-    itemd = types.KeyboardButton('/list')
-    markup.row(itemd)
-    user = getUser(str(cid))
-    if  int(user['token'].values) == cid:
-        disable_bot()
-        bot.send_message(cid, "Bot disabled....", parse_mode='Markdown')
-    else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown') 
-
-@bot.message_handler(commands=['tradehistory'])
-def years(m):
-    cid = m.chat.id
-    markup = types.ReplyKeyboardMarkup()
-    item1 = types.KeyboardButton('2022')
-    item2 = types.KeyboardButton('2023')
-    item3 = types.KeyboardButton('2024')
-    item4 = types.KeyboardButton('2025')
-    item5 = types.KeyboardButton('2026')
-    itemb = types.KeyboardButton('/list')
+    item1 = types.KeyboardButton('/SetParams')
+    item2 = types.KeyboardButton('/SetTrendtime')
+    item3 = types.KeyboardButton('/SetRSIValue')
+    item4 = types.KeyboardButton('/SetMAValue')
+    item5 = types.KeyboardButton('/SetSignalsValue')
+    item6 = types.KeyboardButton('/CopyBacktestToReal')
+    item7 = types.KeyboardButton('/List')
     markup.row(item1)
     markup.row(item2)
     markup.row(item3)
     markup.row(item4)
     markup.row(item5)
-    markup.row(itemb)
-    bot.send_message(cid, "Select year:", parse_mode='Markdown', reply_markup=markup)
-    bot.register_next_step_handler_by_chat_id(cid, months)
+    markup.row(item6)
+    markup.row(item7)
+    bot.send_message(cid, help_text, reply_markup=markup)        
 
-def months(m):
+#@bot.message_handler(commands=['TokensMenu'])
+def tokens(m):
     cid = m.chat.id
+    help_text = "Available options."
+    # Define the buttons
+    button1 = InlineKeyboardButton("Add Token", callback_data="AddToken")
+    button2 = InlineKeyboardButton("Delete Token", callback_data="DeleteToken")
+    button3 = InlineKeyboardButton("<< Back to List", callback_data="List")
+
+    # Create a nested list of buttons
+    buttons = [[button1], [button2], [button3]]
+
+    # Order the buttons in the second row
+    buttons[1].sort(key=lambda btn: btn.text)
+
+    # Create the keyboard markup
+    reply_markup = InlineKeyboardMarkup(buttons)    
+    bot.send_message(cid, help_text, reply_markup=reply_markup)
+
+def listMenu(m):
+    cid = m.chat.id
+    help_text = "Available options."
+    # Define the buttons
+    button1 = InlineKeyboardButton("List tokens", callback_data="ListTokens")
+    button2 = InlineKeyboardButton("List trend market", callback_data="Listtrendmarket")
+    button3 = InlineKeyboardButton("List Params", callback_data="Listparams")
+    button4 = InlineKeyboardButton("List Trend Params", callback_data="Listtrendparams")
+    button5 = InlineKeyboardButton("List Binance Gainers", callback_data="ListBinanceGainers")
+    button6 = InlineKeyboardButton("List Binance Top Volume", callback_data="ListBinanceTopVolume")
+    button7 = InlineKeyboardButton("<< Back to list", callback_data="List")
+
+    # Create a nested list of buttons
+    buttons = [[button1], [button2], [button3], [button4], [button5], [button6], [button7]]
+
+    # Order the buttons in the second row
+    buttons[1].sort(key=lambda btn: btn.text)
+
+    # Create the keyboard markup
+    reply_markup = InlineKeyboardMarkup(buttons)    
+    bot.send_message(cid, help_text, reply_markup=reply_markup)  
+
+# global
+def timeframe(m):
+    cid = m.chat.id
+    global gpair, gnext, gdata, gcount
+    gpair = m.text.upper()
     valor = m.text
-    global gyear
-    gyear = valor
-    markup = types.ReplyKeyboardMarkup()
-    item1 = types.KeyboardButton('01')
-    item2 = types.KeyboardButton('02')
-    item3 = types.KeyboardButton('03')
-    item4 = types.KeyboardButton('04')
-    item5 = types.KeyboardButton('05')
-    item6 = types.KeyboardButton('06')
-    item7 = types.KeyboardButton('07')
-    item8 = types.KeyboardButton('08')
-    item9 = types.KeyboardButton('09')
-    item10 = types.KeyboardButton('10')
-    item11 = types.KeyboardButton('11')
-    item12 = types.KeyboardButton('12')
-    itemb = types.KeyboardButton('/list')
-    markup.row(item1, item2, item3, item4)
-    markup.row(item5, item6, item7, item8)
-    markup.row(item9, item10, item11, item12)
-    markup.row(itemb)
-    bot.send_message(cid, "Select month:", parse_mode='Markdown', reply_markup=markup)
-    bot.register_next_step_handler_by_chat_id(cid, trade)                
+    gdata = (valor.upper(),str(cid))
+    if gpair == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item1 = types.KeyboardButton('/List')
+       item = types.KeyboardButton('/Start')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else:   
+       markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+       item1 = types.KeyboardButton('1m')
+       item2 = types.KeyboardButton('5m')
+       item3 = types.KeyboardButton('1h')
+       item4 = types.KeyboardButton('2h')
+       item5 = types.KeyboardButton('4h')
+       item6 = types.KeyboardButton('1d')
+       item = types.KeyboardButton('/List')
+       itemc = types.KeyboardButton('CANCEL')
+       markup.row(item1, item2, item3)
+       markup.row(item4, item5, item6)
+       markup.row(item)
+       markup.row(itemc)
+       bot.send_message(cid, 'Select your timeframe', parse_mode='Markdown', reply_markup=markup,)   
+       bot.register_next_step_handler_by_chat_id(cid, gnext)       
 
-def trade(m):
+####################################################################################################
+#########################Listparams#################################################################
+####################################################################################################    
+
+def listparams(m):
     cid = m.chat.id
-    global gyear
     markup = types.ReplyKeyboardMarkup()
-    itemd = types.KeyboardButton('/list')
-    markup.row(itemd)
-    user = getUser(str(cid))
-    if  int(user['token'].values) == cid:
-        query  = "select qty, nextOpsVal, nextOps, sellFlag, ops, price, margin, STRFTIME('%d/%m/%Y %H:%M',datetime(close_time/1000, 'unixepoch')) close_time, trend from trader_history"
-        query += " where STRFTIME('%Y',datetime(close_time/1000, 'unixepoch')) = '" + gyear + "'"
-        query += " and STRFTIME('%m',datetime(close_time/1000, 'unixepoch')) = '" + m.text + "'"
-        df = pd.read_sql(query,con=db_con)
-        bot.send_message(cid, 'Generating file......')
-        df.to_csv("History-" + gyear + '-' + m.text + '.csv',  index=False)
-        file = open("History-" + gyear + '-' + m.text + '.csv')
-        print(file)
-        bot.send_document(cid,file)
-        # for i in df.index:
-         #   bot.send_message(cid, 'Close time: ' +  str(df['close_time'][i]) + "\n Next Ops: " + str(df['nextOps'][i]) + " \n Op: " + str(df['ops'][i]) + " \n Qty: " + str(df['qty'][i]), parse_mode='Markdown', reply_markup=markup)
-    else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown')
+    global gnext
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)    
+    bot.send_message(cid, 'Select the token you want to get the params data', parse_mode='Markdown', reply_markup=markup)
+    gnext = params
+    bot.register_next_step_handler_by_chat_id(cid, timeframe)
+  
 
-@bot.message_handler(commands=['trader'])
-def trader(m):
-    cid = m.chat.id
-    global gyear
-    markup = types.ReplyKeyboardMarkup()
-    itemd = types.KeyboardButton('/list')
-    markup.row(itemd)
-    params = pd.read_sql('SELECT * FROM parameters where trend = (select trend from trader)',con=db_con)
-    balance_usdt = float(client.get_asset_balance(asset='USDT')['free'])
-    balance_eth = float(client.get_asset_balance(asset='ETH')['free'])
-    user = getUser(str(cid))
-    if  int(user['token'].values) == cid:
-        query  = "select * from trader"
-        df = pd.read_sql(query,con=db_con)
-        eth = getTicker()
-        for i in df.index:
-            balanceEth = "{:2,.4f}".format(balance_eth)
-            balanceUsdt = "{:2,.4f}".format(balance_usdt)
-            bot.send_message(cid, 'Qty: ' +  str(df['qty'][i]) 
-            + "\n Next Ops Value: " + str(df['nextOpsVal'][i]) 
-            + "\n Next Ops: " + str(df['nextOps'][i]) 
-            + " \n sellFlag: " + str(df['sellFlag'][i]) 
-            + " \n Ops: "      + str(df['ops'][i]) 
-            + " \n Trend: " + df['trend'][0] 
-            + " \n Margin Sell: " + str(params['margingsell'][0]) + " %" 
-            + " \n Margin buy: " + str(params['margingbuy'][0]) + " %"
-            + " \n ForceSell: " + str(params['forcesell'][0]) + " % "
-            + " \n StopLoss: " + str(params['stoploss'][0]) + " % "
-            + " \n UpdatedAt: " + str(df['updatedAt'][0]) + ""
-            + " \n Ticker: " + str(eth[4][499]) 
-            + " \n\n Balance ETH: " + balanceEth + " \n Balance USDT: " 
-            + str(balanceUsdt), parse_mode='Markdown')
-    else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown')
-    balance_usdt = 0
-    balance_eth = 0 
-    balanceUsdt = 0
-    balanceEth = 0   
-
-@bot.message_handler(commands=['botstatus'])
-def botstatus(m):
-    cid = m.chat.id
-    global gyear
-    markup = types.ReplyKeyboardMarkup()
-    itemd = types.KeyboardButton('/list')
-    markup.row(itemd)
-    user = getUser(str(cid))
-    if  int(user['token'].values) == cid:
-        query  = "select case when status = '1' then 'Bot enabled' else 'Bot disabled' end status from t_signal"
-        df = pd.read_sql(query,con=db_con)
-        for i in df.index:
-            bot.send_message(cid, 'Status: ' +  str(df['status'][i]), parse_mode='Markdown')
-    else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown')  
-
-@bot.message_handler(commands=['resetbot'])
-def resetbot(m):
-    cid = m.chat.id
-    global gyear
-    markup = types.ReplyKeyboardMarkup()
-    itemd = types.KeyboardButton('/list')
-    markup.row(itemd)
-    user = getUser(str(cid))
-    if  int(user['token'].values) == cid:
-        restart_bot()
-        bot.send_message(cid, 'All operations start from cero...done !!', parse_mode='Markdown')
-    else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown') 
-
-@bot.message_handler(commands=['params'])
 def params(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    itemd = types.KeyboardButton('/list')
+    itemd = types.KeyboardButton('/List')
     markup.row(itemd)
-    bot.send_message(cid, 'Put your params, it will update params for trend(normaltrend,uptrend and downtrend), margingsell, margingbuy, forcesell, and stoploss. @ Separated. Example: normaltrend@0.3@0.3@99999999@99999999', parse_mode='Markdown', reply_markup=markup)                        
-    bot.register_next_step_handler_by_chat_id(cid, paramsActions)
+    user = getUser(cid)
+    if  int(user['token'].values) == cid:
+        df = pd.read_sql('SELECT * FROM backtest.parameters order by id',con=db_con)
+        a = df.index.size
+        if a != 0:
+            for i in df.index:
+                bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nMargingSell: *" + str(df['margingsell'][i]) + "\n*MargingBuy: *" + str(df['margingbuy'][i]) + "\n*ForceSell: *" + str(df['forcesell'][i]) + "\n*StopLoss: *" + str(df['stoploss'][i]) , parse_mode='Markdown')
+                bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)
+        else:
+                bot.send_message(cid, 'No records found', parse_mode='Markdown', reply_markup=markup)     
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')     
+
+##############List trend Params #################################################################
+
+def listtrendparams(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)    
+    bot.send_message(cid, 'Select the token you want to get the trend params data', parse_mode='Markdown', reply_markup=markup)
+    gnext = listtrendparams
+    bot.register_next_step_handler_by_chat_id(cid, timeframe)
+ 
+
+def listtrendparams(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/List')
+    markup.row(itemd)
+    user = getUser(cid)
+    if  int(user['token'].values) == cid:
+        df = pd.read_sql('SELECT * FROM backtest.trend order by id',con=db_con)
+        a = df.index.size
+        if a != 0:
+            for i in df.index:
+                bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nDowntrend: *" + str(df['downtrend'][i]) + "\n*Uptrend: *" + str(df['uptrend'][i]), parse_mode='Markdown')
+                bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)
+        else:
+                bot.send_message(cid, 'No records found', parse_mode='Markdown', reply_markup=markup)        
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')    
+
+##############List trend Params #################################################################
+
+##############ListBinanceGainers #################################################################
+def listBinanceGainers(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext
+    # Send the request to the API
+    bot.send_message(cid,"-----Fetching from Binance-----")
+    response = requests.get(operations.binance_url)
+    # Check if the request was successful
+    if response.status_code == 200:
+        # Convert the response to JSON
+        data = json.loads(response.text)
+    
+        # Get the list of gainers
+        gainers = []
+        for coin in data:
+            if ( not (coin['symbol'].startswith("BUSD") or coin['symbol'].startswith("USDT")) and coin['symbol'].endswith("BUSD") or coin['symbol'].endswith("USDT")) and float(coin['priceChangePercent']) > 15:
+                gainers.append(coin)
+        
+        # Sort the gainers by percentage change
+        gainers.sort(key=lambda x: float(x['priceChangePercent']), reverse=True)
+    
+        # Print the gainers
+        bot.send_message(cid, "Top gainers of pairs ending in USDT or BUSD \n")
+        for coin in gainers:
+            bot.send_message(cid, f"Symbol: {coin['symbol']} Price Change: {format(float(coin['priceChangePercent']),',.2f')}%  Price: {format(float(coin['lastPrice']),',.2f')}", parse_mode='Markdown', reply_markup=markup)
+        bot.send_message(cid, 'Done')    
+    else:
+        # Print an error message
+        print("Failed to retrieve market data")
+        bot.send_message(cid, "Failed to retrieve market data", parse_mode='Markdown', reply_markup=markup)
+##############ListBinanceGainers #################################################################
+
+##############ListBinanceTopVolume #################################################################
+def listBinanceTopVolume(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext
+    # Send the request to the API
+    bot.send_message(cid,"-----Fetching from Binance-----")
+    response = requests.get(operations.binance_url)
+    # Check if the request was successful
+    if response.status_code == 200:
+        # Retrieve the list of dictionaries from the response
+        data = response.json()
+
+        # Filter the list of dictionaries to exclude pairs starting with "BUSD" or "USDT" and ending with "BUSD"
+        filtered_data = [d for d in data if not (d['symbol'].startswith("BUSD") or d['symbol'].startswith("USDT")) and d['symbol'].endswith("BUSD") or d['symbol'].endswith("USDT")]
+
+        # Sort the filtered data by the volume in descending order
+        sorted_data = sorted(filtered_data, key=lambda x: x['quoteVolume'], reverse=True)
+
+        # Print the top 10 pairs with the highest volume
+        bot.send_message(cid,"Top volume of pairs ending in USDT or BUSD \n")
+        for i, d in enumerate(sorted_data[:10]):
+            bot.send_message(cid,f"{i + 1}. {d['symbol']}: {format(float(d['quoteVolume']),',.2f')}")
+        bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)    
+    else:
+        # If the request fails, print an error message
+        bot.send_message(cid,"Failed to retrieve data from Binance API")
+##############ListBinanceGainers #################################################################
+
+
+# @bot.message_handler(commands=['backtest'])
+# def params(m):
+#     cid = m.chat.id
+#     markup = types.ReplyKeyboardMarkup()
+#     itemd = types.KeyboardButton('/List')
+#     markup.row(itemd)
+#     bot.send_message(cid, 'Put your params, init date, end data, ticker and invest, @ separated, example 2021-09-01@2021-10-31@ETHUSDT1d@400', parse_mode='Markdown', reply_markup=markup)
+#     bot.register_next_step_handler_by_chat_id(cid, backtestActions)    
+
+
+# def backtestActions(m):
+#     cid = m.chat.id
+#     valor = m.text
+#     markup = types.ReplyKeyboardMarkup()
+#     itemd = types.KeyboardButton('/List')
+#     markup.row(itemd)
+#     if  int(user['token'].values) == cid:
+#         start = datetime.now()
+#         bot.send_message(cid, 'Backtesting, this can take some time....')
+#         backtradereth2.backtest(valor)  
+#         bot.send_message(cid, 'Execution time  ' + str(datetime.now() - start))
+#         bot.send_message(cid, 'Backtest ready, now you can download the excel file !!', parse_mode='Markdown')
+#         file = open(valor.split('@')[2]+'-strategy.xlsx','rb')
+#         print(file)
+#         bot.send_document(cid,file)
+#     else:    
+#         bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         
+
+###############Set params #########################################
+###################################################################
+
+@bot.message_handler(commands=['SetParams'])
+def addparams(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)
+    bot.send_message(cid, 'Add your pair in Upper Case, example ETHUBUSD', parse_mode='Markdown', reply_markup=markup)
+    gnext = set_params
+    bot.register_next_step_handler_by_chat_id(cid, timeframe)
+
+def set_params(m):
+    cid = m.chat.id
+    global gframe
+    markup = types.ReplyKeyboardMarkup()
+    normaltrend = types.KeyboardButton('Normaltrend')
+    uptrend = types.KeyboardButton('Uptrend')
+    downtrend = types.KeyboardButton('Downtrend')
+    itemc = types.KeyboardButton('CANCEL')
+    gframe = m.text
+    markup.row(normaltrend)
+    markup.row(uptrend)
+    markup.row(downtrend)
+    markup.row(itemc)
+    bot.send_message(cid, 'Put your params, it will update params for trend(normaltrend,uptrend and downtrend), margingsell, margingbuy, forcesell and stoploss', parse_mode='Markdown', reply_markup=markup)
+    bot.register_next_step_handler_by_chat_id(cid, get_p1)
+
+def get_p1(m):
+    cid = m.chat.id
+    global gp1
+    markup = types.ReplyKeyboardMarkup()
+    gp1 = m.text
+    itemc = types.KeyboardButton('CANCEL')
+    markup.row(itemc)
+    if gp1 == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item1 = types.KeyboardButton('/List')
+       item = types.KeyboardButton('/Start')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else: 
+       bot.send_message(cid, 'Put your params to ' + "*" + '**Margingsell**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 0.03', parse_mode='Markdown', reply_markup=markup)
+       bot.register_next_step_handler_by_chat_id(cid, get_p2)
+
+def get_p2(m):
+    cid = m.chat.id
+    global gp2
+    markup = types.ReplyKeyboardMarkup()
+    itemc = types.KeyboardButton('CANCEL')
+    gp2 = m.text
+    markup.row(itemc)
+    if gp2 == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item1 = types.KeyboardButton('/List')
+       item = types.KeyboardButton('/Start')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else: 
+       bot.send_message(cid, 'Put your params to '+ "*" + '**Marginbuy**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 0.03', parse_mode='Markdown', reply_markup=markup)
+       bot.register_next_step_handler_by_chat_id(cid, get_p3)
+
+def get_p3(m):
+    cid = m.chat.id
+    global gp3
+    markup = types.ReplyKeyboardMarkup()
+    itemc = types.KeyboardButton('CANCEL')
+    gp3 = m.text
+    markup.row(itemc)
+    if gp3 == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item1 = types.KeyboardButton('/List')
+       item = types.KeyboardButton('/Start')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else: 
+       bot.send_message(cid, 'Put your params to '+ "*" + '**Takeprofit**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 0.03', parse_mode='Markdown', reply_markup=markup)
+       bot.register_next_step_handler_by_chat_id(cid, get_p4)
+
+def get_p4(m):
+    cid = m.chat.id
+    global gp4
+    markup = types.ReplyKeyboardMarkup()
+    itemc = types.KeyboardButton('CANCEL')
+    gp4 = m.text
+    markup.row(itemc)
+    if gp4 == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item1 = types.KeyboardButton('/List')
+       item = types.KeyboardButton('/Start')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else: 
+       bot.send_message(cid, 'Put your params to '+ "*" + '**Stoploss**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 0.03', parse_mode='Markdown', reply_markup=markup)
+       bot.register_next_step_handler_by_chat_id(cid, paramsActions)                
 
 def paramsActions(m):
     cid = m.chat.id
     valor = m.text
-    global gdata
-    gdata = (valor.split('@')[0],valor.split('@')[1],valor.split('@')[2],valor.split('@')[3],valor.split('@')[4])
+    global gdata, gframe, gpair, gp5
+    user = getUser(cid)
+    gp5 = m.text
+    gdata = (gp1.lower(), gp2, gp3, gp4, gp5,cid,gpair,gframe)
     markup = types.ReplyKeyboardMarkup()
-    itemd = types.KeyboardButton('/list')
+    itemd = types.KeyboardButton('/List')
     markup.row(itemd)
-    user = getUser(str(cid))
-    if  int(user['token'].values) == cid:
-        paramsAction(gdata)
-        bot.send_message(cid, 'Params has changed...done !!', parse_mode='Markdown')
-    else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown')
+    if gp5 == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item1 = types.KeyboardButton('/List')
+       item = types.KeyboardButton('/Start')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else: 
+       if  int(user['token'].values) == cid:
+           paramsAction(gdata)
+           bot.send_message(cid, 'Params has changed...done !!', parse_mode='Markdown', reply_markup=markup)
+       else:    
+           bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)
 
-
-@bot.message_handler(commands=['trendtime'])
-def trendtime(m):
+#####################################################################################################
+########## Historical################################################################################
+#####################################################################################################
+def historical(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    itemd = types.KeyboardButton('/list')
-    markup.row(itemd)
-    bot.send_message(cid, 'Put your time and integer time (2,3,4,5,6,7,8,9,10,etc), downtrend and uptrend @ separated, example 6@-4@6 , it will update trendtime function', parse_mode='Markdown', reply_markup=markup)                        
-    bot.register_next_step_handler_by_chat_id(cid, trendtimeActions)
+    global gnext
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)    
+    bot.send_message(cid, 'Select the token you want to get the historical data', parse_mode='Markdown', reply_markup=markup)
+    gnext = gethistorical
+    bot.register_next_step_handler_by_chat_id(cid, timeframe)
+
+
+def gethistorical(m):
+    cid = m.chat.id
+    valor = m.text
+    if valor == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/Start')
+       item1 = types.KeyboardButton('/List')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else:   
+       user = getUser(cid)
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/List')
+       markup.row(item)
+       if int(user['token'].values) == cid:
+         bot.send_message(cid, 'Getting historical data of ' +  valor + ', this can take some time, be pacient...')
+         getHistorical.api_telegram = str(user['token'].values)
+         getHistorical.schema = "backtest"
+         getHistorical.get_all_binance(gpair, valor, save=True)
+         bot.send_message(cid, 'Done !!', parse_mode='Markdown', reply_markup=markup)
+       else:    
+         bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup) 
+
+##########Add token###############################################################################################
+def addToken(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    itemc = types.KeyboardButton('CANCEL')
+    markup.row(itemc)
+    bot.send_message(cid, 'Add your pair in Upper Case, example ETHUBUSD', parse_mode='Markdown', reply_markup=markup)
+    bot.register_next_step_handler_by_chat_id(cid, addTokenActions)
+
+def addTokenActions(m):
+    cid = m.chat.id
+    valor = m.text
+    global gdata, gcount
+    gdata = (valor.upper(),str(cid))
+    if valor == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/Start')
+       item1 = types.KeyboardButton('/List')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else:   
+       user = getUser(cid)
+       markup = types.ReplyKeyboardMarkup()
+       item1 = types.KeyboardButton('/AddToken')
+       item2 = types.KeyboardButton('/DeleteToken')
+       item = types.KeyboardButton('/List')
+       markup.row(item)
+       markup.row(item1)
+       markup.row(item2)
+       if int(user['token'].values) == cid:
+         addTokenDb(gdata)
+         bot.send_message(cid, 'Token added : ' + valor.upper(), parse_mode='Markdown', reply_markup=markup) if gcount == 1 else bot.send_message(cid, 'Error inserting pair: ' + valor.upper() + ', already exists, try again with other value...', parse_mode='Markdown', reply_markup=markup)
+       else:    
+         bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)                 
+
+##########ListToken#####################################################################################################
+def listTokens(m):
+    cid = m.chat.id
+    user = getUser(cid)
+    if  int(user['token'].values) == cid:
+        df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+        # print("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id")
+        bot.send_message(cid, "List of pairs added:", parse_mode='Markdown')
+        for i in df.index:
+            bot.send_message(cid, "*Pair: *" + str(df['pair'][i]) , parse_mode='Markdown')
+
+        keyboard = InlineKeyboardMarkup(row_width=1)
+        button1 = InlineKeyboardButton('<< Back to list', callback_data='List')
+        keyboard.add(button1)   
+        bot.send_message(cid, "Done..", reply_markup=keyboard)    
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')  
+
+##########Delete token################################################################################################
+def deleteToken(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['id'][i]) + ' - ' + str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)    
+    bot.send_message(cid, 'Select the token you want remove', parse_mode='Markdown', reply_markup=markup)
+    bot.register_next_step_handler_by_chat_id(cid, deleteokenActions)
+
+def deleteokenActions(m):
+    cid = m.chat.id
+    valor = m.text
+    global gdata, gcount
+    gdata = (valor.split(" - ")[0],str(cid))
+    if valor == 'Cancel':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/Start')
+       item1 = types.KeyboardButton('/List')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else:   
+       user = getUser(cid)
+       markup = types.ReplyKeyboardMarkup()
+       item1 = types.KeyboardButton('/AddToken')
+       item2 = types.KeyboardButton('/ListToken')
+       item = types.KeyboardButton('/List')
+       markup.row(item)
+       markup.row(item1)
+       markup.row(item2)
+       if int(user['token'].values) == cid:
+         deleteTokenDb(gdata)
+         bot.send_message(cid, 'Token deleted : ' + valor.upper(), parse_mode='Markdown', reply_markup=markup) if gcount == 1 else bot.send_message(cid, 'Error deleting pair: ' + valor.upper() + ', value does not exists, try again with other value...', parse_mode='Markdown', reply_markup=markup)
+       else:    
+         bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)          
+
+##########Trend Time################################################################################################
+
+@bot.message_handler(commands=['SetTrendtime'])
+def settrendtime(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)    
+    bot.send_message(cid, 'Select the token you want to set the trend', parse_mode='Markdown', reply_markup=markup)
+    gnext = trendtime
+    bot.register_next_step_handler_by_chat_id(cid, timeframe)
+
+def trendtime(m):
+    cid = m.chat.id
+    global gnext, gframe
+    markup = types.ReplyKeyboardMarkup()
+    # itemd = types.KeyboardButton('/List')
+    valor = m.text
+    gframe = m.text
+    if valor == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/Start')
+       item1 = types.KeyboardButton('/List')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else:
+       gnext = set_params
+       bot.send_message(cid, 'Put your time and integer time (2,3,4,5,6,7,8,9,10,etc), normaltrend, downtrend and uptrend @ separated, example 6@-4@6 , it will update trendtime function', parse_mode='Markdown', reply_markup=markup)                        
+       bot.register_next_step_handler_by_chat_id(cid, trendtimeActions)
 
 def trendtimeActions(m):
     cid = m.chat.id
     valor = m.text
-    global gdata
-    gdata = (valor.split('@')[0],valor.split('@')[1],valor.split('@')[2])
+    global gdata, gframe, gpair
+    user = getUser(cid)
+    gdata = (valor.split('@')[0],valor.split('@')[1],valor.split('@')[2],cid,gpair,gframe)
     markup = types.ReplyKeyboardMarkup()
-    itemd = types.KeyboardButton('/list')
+    itemd = types.KeyboardButton('/List')
     markup.row(itemd)
-    user = getUser(str(cid))
     if  int(user['token'].values) == cid:
         trendTime(gdata)
         bot.send_message(cid, 'Trend time has changed...done !!', parse_mode='Markdown')
     else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown')              
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown') 
+
+##########RSI################################################################################################
+
+@bot.message_handler(commands=['SetRSIValue'])
+def settrendtime(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)    
+    bot.send_message(cid, 'Select the token you want to set the RSI', parse_mode='Markdown', reply_markup=markup)
+    gnext = rsi
+    bot.register_next_step_handler_by_chat_id(cid, timeframe)
+
+def rsi(m):
+    cid = m.chat.id
+    global gnext, gframe
+    markup = types.ReplyKeyboardMarkup()
+    # itemd = types.KeyboardButton('/List')
+    valor = m.text
+    gframe = m.text
+    if valor == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/Start')
+       item1 = types.KeyboardButton('/List')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else:
+       gnext = set_params
+       bot.send_message(cid, 'Put your RSI value, eg 14', parse_mode='Markdown', reply_markup=markup)                        
+       bot.register_next_step_handler_by_chat_id(cid, setrsi)
+
+def setrsi(m):
+    cid = m.chat.id
+    valor = m.text
+    global gdata, gframe, gpair
+    user = getUser(cid)
+    gdata = valor
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/List')
+    markup.row(itemd)
+    if  int(user['token'].values) == cid:
+        indicators(gdata, "RSI")
+        bot.send_message(cid, 'RSI added...done !!', parse_mode='Markdown')
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')
+
+##########RSI################################################################################################
+
+@bot.message_handler(commands=['SetMAValue'])
+def settrendtime(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)    
+    bot.send_message(cid, 'Select the token you want to set the MA', parse_mode='Markdown', reply_markup=markup)
+    gnext = ma
+    bot.register_next_step_handler_by_chat_id(cid, timeframe)
+
+def ma(m):
+    cid = m.chat.id
+    global gnext, gframe
+    markup = types.ReplyKeyboardMarkup()
+    # itemd = types.KeyboardButton('/List')
+    valor = m.text
+    gframe = m.text
+    if valor == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/Start')
+       item1 = types.KeyboardButton('/List')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else:
+       gnext = set_params
+       bot.send_message(cid, 'Put your MA value, eg 99', parse_mode='Markdown', reply_markup=markup)                        
+       bot.register_next_step_handler_by_chat_id(cid, setma)
+
+def setma(m):
+    cid = m.chat.id
+    valor = m.text
+    global gdata, gframe, gpair
+    user = getUser(cid)
+    gdata = valor
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/List')
+    markup.row(itemd)
+    if  int(user['token'].values) == cid:
+        indicators(gdata, "RSI")
+        bot.send_message(cid, 'RSI added...done !!', parse_mode='Markdown')
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')      
+
+##########List trend#####################################################################################################
+
+def listtrendmarket(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)    
+    bot.send_message(cid, 'Select the token you want to get the trend data', parse_mode='Markdown', reply_markup=markup)
+    bot.register_next_step_handler_by_chat_id(cid, timeframeTrend)
+
+def timeframeTrend(m):
+    cid = m.chat.id
+    global gpair
+    gpair = m.text.upper()
+
+    if gpair == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/Start')
+       item1 = types.KeyboardButton('/List')
+       markup.row(item)
+       markup.row(item1)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else:   
+       markup = types.ReplyKeyboardMarkup()
+       item1 = types.KeyboardButton('1m')
+       item2 = types.KeyboardButton('5m')
+       item3 = types.KeyboardButton('1h')
+       item4 = types.KeyboardButton('2h')
+       item5 = types.KeyboardButton('4h')
+       item6 = types.KeyboardButton('1d')
+       item = types.KeyboardButton('/List')
+       itemc = types.KeyboardButton('Cancel')
+       markup.row(item1, item2, item3)
+       markup.row(item4, item5, item6)
+       markup.row(item)
+       markup.row(itemc)
+       bot.send_message(cid, 'Select your timeframe', parse_mode='Markdown', reply_markup=markup)   
+       bot.register_next_step_handler_by_chat_id(cid, trend)
+
+def trend(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/List')
+    markup.row(itemd)
+    valor = m.text
+    user = getUser(cid)
+    
+    if  int(user['token'].values) == cid:
+        trendParams = pd.read_sql("SELECT * FROM backtest.trend where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "'",con=db_con)
+        a = trendParams.index.size
+        bot.send_message(cid, 'Trend in real time ' + str(tr.trendBot(trendParams['trend'][0],gpair, valor)) if a != 0 else 'No records found', parse_mode='Markdown', reply_markup=markup)    
+        bot.send_message(cid, "Done..")                     
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         
 
 # default handler for every other text
 @bot.message_handler(func=lambda message: True, content_types=['text'])
 def command_default(m):
     # this is the standard reply to a normal message
-    global gcodrep
-    gcodrep = ""
     markup = types.ReplyKeyboardMarkup()
-    iteme = types.KeyboardButton('/list')
+    iteme = types.KeyboardButton('/List')
     markup.row(iteme)
-    bot.send_message(m.chat.id, "Does not understand \"" + m.text + "\"\n , try with \n \n /list" , reply_markup=markup)        
+    bot.send_message(m.chat.id, "Does not understand \"" + m.text + "\"\n , try with \n \n /List" , reply_markup=markup)        
 
 bot.polling()     
