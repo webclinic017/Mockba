@@ -38,7 +38,7 @@ def trendBot(vlrange, pair, interval):
         val = 499 - i # last six periods (5 minutes each, total 30 minutes)
         value = float(eth[4][val])
         ticker.append(value)
-    print(ticker)
+    # print(ticker)
 
     return trend(ticker)
 

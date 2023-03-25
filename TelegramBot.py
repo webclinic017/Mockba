@@ -230,7 +230,8 @@ def callback_handler(call):
         'ListTokens': listTokens,
         'Listtrendmarket': listtrendmarket,
         'Listparams': listparams,
-        'Listtrendparams': listtrendparams,
+        'ListIndicators': listindicators,
+        'Listtrendparams': listtrend,
         'ListBinanceGainers': listBinanceGainers,
         'ListBinanceTopVolume': listBinanceTopVolume,
         'ParamsMenu': paramsmenu,
@@ -379,7 +380,7 @@ def params(m):
 ####################################################################################################
 #########################ListIndicators#################################################################
 ####################################################################################################    
-def listindicator(m):
+def listindicators(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
     global gnext
@@ -399,19 +400,21 @@ def indicators(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/List')
     markup.row(itemd)
+    valor = m.text
     user = getUser(cid)
     if  int(user['token'].values) == cid:
-        df = pd.read_sql('SELECT * FROM backtest.parameters order by id',con=db_con)
+        bot.send_message(cid, "*You selected: *" + gpair + " for a timeframe of:" + valor, parse_mode='Markdown')
+        df = pd.read_sql("SELECT * FROM backtest.indicators where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "' order by indicators",con=db_con)
         a = df.index.size
         for i in df.index:
-            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nMargingSell: *" + str(df['margingsell'][i]) + "\n*MargingBuy: *" + str(df['margingbuy'][i]) + "\n*ForceSell: *" + str(df['take_profit'][i]) + "\n*StopLoss: *" + str(df['stoploss'][i]) if a != 0 else 'No records found' , parse_mode='Markdown')
-            bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)   
+            bot.send_message(cid, "*Indicator: *" + str(df['indicator'][i]) + "*\nValue: *" + str(df['value'][i]) if a != 0 else 'No records found' , parse_mode='Markdown')
+        bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)   
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')          
 
 ##############List trend Params #################################################################
 
-def listtrendparams(m):
+def listtrend(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
     global gnext
@@ -431,18 +434,16 @@ def listtrendparams(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/List')
     markup.row(itemd)
+    valor = m.text
     global gpair, gframe
     user = getUser(cid)
     if  int(user['token'].values) == cid:
-        df = pd.read_sql('SELECT * FROM backtest.trend order by id',con=db_con)
+        df = pd.read_sql("SELECT * FROM backtest.trend where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "' order by id",con=db_con)
         a = df.index.size
-        if a != 0:
-            bot.send_message(cid, "*You selected: *" + gpair + " for a timeframe of:" + gframe, parse_mode='Markdown')
-            for i in df.index:
-                bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nDowntrend: *" + str(df['downtrend'][i]) + "\n*Uptrend: *" + str(df['uptrend'][i]), parse_mode='Markdown')
-                bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)
-        else:
-                bot.send_message(cid, 'No records found', parse_mode='Markdown', reply_markup=markup)        
+        bot.send_message(cid, "*You selected: *" + gpair + " for a timeframe of:" + gframe, parse_mode='Markdown')
+        for i in df.index:
+            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nDowntrend: *" + str(df['downtrend'][i]) + "\n*Uptrend: *" + str(df['uptrend'][i]) if a != 0 else 'No records found', parse_mode='Markdown')
+            bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)        
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')    
 
