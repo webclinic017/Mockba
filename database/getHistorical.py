@@ -17,7 +17,7 @@ binance_api_key = df['api_key']
 binance_api_secret = df['api_secret']
 
 ### CONSTANTS
-binsizes = {"1m": 1, "5m": 5, "1h": 60, "2h": 120, "4h": 240, "1d": 1440}
+binsizes = {"1m": 1, "5m": 5, "15m": 15, "1h": 60, "2h": 120, "4h": 240, "1d": 1440}
 batch_size = 750
 binance_client = Client(api_key=binance_api_key.to_string(index=False), api_secret=binance_api_secret.to_string(index=False))
 
