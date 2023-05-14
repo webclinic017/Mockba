@@ -41,21 +41,29 @@ gp2 = "0"
 gp3 = "0"
 gp4 = "0"
 gp5 = "0"
+genv = ""
+
+def getEnv(m):
+    cid = m.chat.id
+    global genv
+    df = pd.read_sql("SELECT env FROM public.t_setenv where token = '" + str(cid) + "'",con=db_con)
+    a = df.index.size
+    genv = df['env'][0] if a != 0 else ""
 
 
 # Def get next ops
-def getUser(token):
-    df = pd.read_sql("SELECT * FROM backtest.t_login where token = " + str(token) ,con=db_con)
+def getUser(token, env):
+    df = pd.read_sql("SELECT * FROM " + env + ".t_login where token = " + str(token) ,con=db_con)
     return df
 
 # Def addtoken
-def addTokenDb(data):
+def addTokenDb(data, env):
     global gcount
     try:
         conn = psycopg2.connect(host=host, database=database, user=user, password=password)
         cursor = conn.cursor()
         # insert data into the database
-        sql = "insert into backtest.t_pair (pair, token) values (%s, %s)"
+        sql = "insert into " + env + ".t_pair (pair, token) values (%s, %s)"
         cursor.execute(sql, data)
         gcount = cursor.rowcount
         # commit the transaction
@@ -70,13 +78,13 @@ def addTokenDb(data):
            conn.close()    
 
 # Def deletetoken
-def deleteTokenDb(data):
+def deleteTokenDb(data, env):
     global gcount
     try:
         conn = psycopg2.connect(host=host, database=database, user=user, password=password)
         cursor = conn.cursor()
         # insert data into the database
-        sql = "delete from backtest.t_pair where id = %s and token = %s"
+        sql = "delete from " + env + ".t_pair where id = %s and token = %s"
         cursor.execute(sql, data)
         gcount = cursor.rowcount
         # commit the transaction
@@ -91,12 +99,12 @@ def deleteTokenDb(data):
            conn.close() 
 
 # Def paramsAction
-def paramsAction(data):
+def paramsAction(data, env):
     try:
         conn = psycopg2.connect(host=host, database=database, user=user, password=password)
         cursor = conn.cursor()
         # insert data into the database
-        sql = "insert into backtest.parameters (trend, margingsell, margingbuy, takeprofit, stoploss, token, pair, timeframe) values (%s,%s,%s,%s,%s,%s,%s,%s)"
+        sql = "insert into " + env + ".parameters (trend, margingsell, margingbuy, take_profit, stoploss, token, pair, timeframe) values (%s,%s,%s,%s,%s,%s,%s,%s)"
         cursor.execute(sql, data)
         gcount = cursor.rowcount
         # commit the transaction
@@ -111,12 +119,12 @@ def paramsAction(data):
            conn.close() 
 
 # Def trendTime
-def trendTime(data):
+def trendTime(data, env):
     try:
         conn = psycopg2.connect(host=host, database=database, user=user, password=password)
         cursor = conn.cursor()
         # insert data into the database
-        sql = "insert into backtest.trend (trend,downtrend,uptrend,token,pair,timeframe) values (%s,%s,%s,%s,%s,%s)"
+        sql = "insert into " + env + ".trend (trend,downtrend,uptrend,token,pair,timeframe) values (%s,%s,%s,%s,%s,%s)"
         cursor.execute(sql, data)
         gcount = cursor.rowcount
         # commit the transaction
@@ -131,12 +139,12 @@ def trendTime(data):
            conn.close() 
 
 # Def indicators, MA and RSI
-def indicators(data):
+def add_indicators(data, env):
     try:
         conn = psycopg2.connect(host=host, database=database, user=user, password=password)
         cursor = conn.cursor()
         # insert data into the database
-        sql = "insert into backtest.indicators (indicator,value,token,timeframe,pair) values (%s,%s,%s,%s,%s)"
+        sql = "insert into " + env + ".indicators (indicator,value,token,timeframe,pair) values (%s,%s,%s,%s,%s)"
         cursor.execute(sql, data)
         gcount = cursor.rowcount
         # commit the transaction
@@ -256,6 +264,7 @@ def callback_handler(call):
         'ListBinanceGainers': listBinanceGainers,
         'ListBinanceTopVolume': listBinanceTopVolume,
         'ListBotStatus': listBotStatus,
+        'ListEnv': listEnv,
         'ParamsMenu': paramsmenu,
         'SetParams': addparams,
         'SetTrendtime': settrendtime,
@@ -323,7 +332,7 @@ def listMenu(m):
     button6 = InlineKeyboardButton("List Binance Gainers", callback_data="ListBinanceGainers")
     button7 = InlineKeyboardButton("List Binance Top Volume", callback_data="ListBinanceTopVolume")
     button8 = InlineKeyboardButton("List Bot Status (Token-Timeframe)", callback_data="ListBotStatus")
-    button9 = InlineKeyboardButton("List Enviroment (Testnet, Mainnet)", callback_data="ListEnv")
+    button9 = InlineKeyboardButton("List Enviroment (Backtest, Main)", callback_data="ListEnv")
     button10 = InlineKeyboardButton("<< Back to list", callback_data="List")
 
     # Create a nested list of buttons
@@ -372,10 +381,12 @@ def timeframe(m):
 ####################################################################################################    
 
 def listparams(m):
+    # get env
+    getEnv(m)
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    global gnext
-    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    global gnext, genv
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['pair'][i]))
         markup.row(itemc)
@@ -387,15 +398,17 @@ def listparams(m):
   
 
 def params(m):
+    #get env
+    getEnv(m)
     cid = m.chat.id
-    global gpair
+    global gpair, genv
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     valor = m.text
-    user = getUser(cid)
+    user = getUser(cid, genv)
     if  int(user['token'].values) == cid:
-        df = pd.read_sql("SELECT * FROM backtest.parameters where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "' order by id",con=db_con)
+        df = pd.read_sql("SELECT * FROM " + genv + ".parameters where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "' order by id",con=db_con)
         a = df.index.size
         bot.send_message(cid, "You selected " + gpair + " " + valor + " timeframe") 
         for i in df.index:
@@ -408,10 +421,12 @@ def params(m):
 #########################ListIndicators#################################################################
 ####################################################################################################    
 def listindicators(m):
+    # get env
+    getEnv(m)
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    global gnext
-    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    global gnext, genv
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['pair'][i]))
         markup.row(itemc)
@@ -423,15 +438,18 @@ def listindicators(m):
   
 
 def indicators(m):
+    # get env
+    getEnv(m)
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     valor = m.text
-    user = getUser(cid)
+    global genv
+    user = getUser(cid, genv)
     if  int(user['token'].values) == cid:
         bot.send_message(cid, "*You selected: *" + gpair + " for a timeframe of: " + valor, parse_mode='Markdown')
-        df = pd.read_sql("SELECT * FROM backtest.indicators where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "' order by indicators",con=db_con)
+        df = pd.read_sql("SELECT * FROM " + genv + ".indicators where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "' order by indicators",con=db_con)
         a = df.index.size
         for i in df.index:
             bot.send_message(cid, "*Indicator: *" + str(df['indicator'][i]) + "*\nValue: *" + str(df['value'][i]) if a != 0 else 'No records found' , parse_mode='Markdown')
@@ -442,10 +460,12 @@ def indicators(m):
 ##############List trend Params #################################################################
 
 def listtrend(m):
+    # get env
+    getEnv(m)
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    global gnext
-    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    global gnext, genv
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['pair'][i]))
         markup.row(itemc)
@@ -457,15 +477,17 @@ def listtrend(m):
  
 
 def listtrendparams(m):
+    # get env
+    getEnv(m)
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     valor = m.text
-    global gpair, gframe
-    user = getUser(cid)
+    global gpair, gframe, genv
+    user = getUser(cid, genv)
     if  int(user['token'].values) == cid:
-        df = pd.read_sql("SELECT * FROM backtest.trend where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "' order by id",con=db_con)
+        df = pd.read_sql("SELECT * FROM " + genv + ".trend where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "' order by id",con=db_con)
         a = df.index.size
         bot.send_message(cid, "*You selected: *" + gpair + " for a timeframe of: " + gframe, parse_mode='Markdown')
         for i in df.index:
@@ -567,6 +589,24 @@ def listBotStatus(m):
         bot.send_message(cid,"Failed to retrieve data from Binance API")
 ##############ListBotStatus #################################################################
 
+##############ListEnv #################################################################
+def listEnv(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    valor = m.text
+    global gpair, gframe
+    user = getUser(cid, genv)
+    if  int(user['token'].values) == cid:
+        df = pd.read_sql("SELECT env FROM public.t_setenv where token = '" + str(cid) + "'",con=db_con)
+        a = df.index.size
+        for i in df.index:
+            bot.send_message(cid, "*Enviroment: *" + str(df['env'][i]) if a != 0 else 'No records found', parse_mode='Markdown')
+            bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)        
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')
+##############ListEnv #################################################################
 
 # @bot.message_handler(commands=['backtest'])
 # def params(m):
@@ -600,10 +640,12 @@ def listBotStatus(m):
 ###################################################################
 
 def addparams(m):
+    #get env
+    getEnv(m)
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    global gnext
-    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    global gnext, genv
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['pair'][i]))
         markup.row(itemc)
@@ -694,10 +736,12 @@ def get_p4(m):
        bot.register_next_step_handler_by_chat_id(cid, paramsActions)                
 
 def paramsActions(m):
+    #get env
+    getEnv(m)
     cid = m.chat.id
     valor = m.text
-    global gdata, gframe, gpair, gp5
-    user = getUser(cid)
+    global gdata, gframe, gpair, gp5, genv
+    user = getUser(cid, genv)
     gp5 = m.text
     gdata = (gp1.lower(), gp2, gp3, gp4, gp5,cid,gpair,gframe)
     markup = types.ReplyKeyboardMarkup()
@@ -719,10 +763,12 @@ def paramsActions(m):
 ########## Historical################################################################################
 #####################################################################################################
 def historical(m):
+    # get env
+    getEnv(m)
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    global gnext
-    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    global gnext, genv
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['pair'][i]))
         markup.row(itemc)
@@ -734,6 +780,9 @@ def historical(m):
 
 
 def gethistorical(m):
+    #get env
+    getEnv(m)
+    global genv
     cid = m.chat.id
     valor = m.text
     if valor == 'CANCEL':
@@ -742,7 +791,7 @@ def gethistorical(m):
        markup.row(item)
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else:   
-       user = getUser(cid)
+       user = getUser(cid, genv)
        markup = types.ReplyKeyboardMarkup()
        item = types.KeyboardButton('/list')
        markup.row(item)
@@ -765,9 +814,11 @@ def addToken(m):
     bot.register_next_step_handler_by_chat_id(cid, addTokenActions)
 
 def addTokenActions(m):
+    #get env
+    getEnv(m)
     cid = m.chat.id
     valor = m.text
-    global gdata, gcount
+    global gdata, gcount, genv
     gdata = (valor.upper(),str(cid))
     if valor == 'CANCEL':
        markup = types.ReplyKeyboardMarkup()
@@ -775,7 +826,7 @@ def addTokenActions(m):
        markup.row(item)
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else:   
-       user = getUser(cid)
+       user = getUser(cid, genv)
        markup = types.ReplyKeyboardMarkup()
        item = types.KeyboardButton('/list')
        markup.row(item)
@@ -787,10 +838,13 @@ def addTokenActions(m):
 
 ##########ListToken#####################################################################################################
 def listTokens(m):
+    #get env
+    getEnv(m)
     cid = m.chat.id
-    user = getUser(cid)
+    global genv
+    user = getUser(cid, genv)
     if  int(user['token'].values) == cid:
-        df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+        df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
         # print("SELECT * FROM t_pair where token = '" + str(cid) + "' order by id")
         bot.send_message(cid, "List of pairs added:", parse_mode='Markdown')
         for i in df.index:
@@ -805,9 +859,12 @@ def listTokens(m):
 
 ##########Delete token################################################################################################
 def deleteToken(m):
+    #get env
+    getEnv(m)
     cid = m.chat.id
+    global genv
     markup = types.ReplyKeyboardMarkup()
-    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['id'][i]) + ' - ' + str(df['pair'][i]))
         markup.row(itemc)
@@ -817,9 +874,11 @@ def deleteToken(m):
     bot.register_next_step_handler_by_chat_id(cid, deleteokenActions)
 
 def deleteokenActions(m):
+    #get env
+    getEnv(m)
     cid = m.chat.id
     valor = m.text
-    global gdata, gcount
+    global gdata, gcount, genv
     gdata = (valor.split(" - ")[0],str(cid))
     if valor == 'Cancel':
        markup = types.ReplyKeyboardMarkup()
@@ -827,7 +886,7 @@ def deleteokenActions(m):
        markup.row(item)
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else:   
-       user = getUser(cid)
+       user = getUser(cid, genv)
        markup = types.ReplyKeyboardMarkup()
        item = types.KeyboardButton('/list')
        markup.row(item)
@@ -840,10 +899,12 @@ def deleteokenActions(m):
 ##########Trend Time################################################################################################
 
 def settrendtime(m):
+    #get env
+    getEnv(m)
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    global gnext
-    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    global gnext, genv
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['pair'][i]))
         markup.row(itemc)
@@ -871,10 +932,12 @@ def trendtime(m):
        bot.register_next_step_handler_by_chat_id(cid, trendtimeActions)
 
 def trendtimeActions(m):
+    #get env
+    getEnv(m)
     cid = m.chat.id
     valor = m.text
-    global gdata, gframe, gpair
-    user = getUser(cid)
+    global gdata, gframe, gpair, genv
+    user = getUser(cid, genv)
     gdata = (valor.split('@')[0],valor.split('@')[1],valor.split('@')[2],cid,gpair,gframe)
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
@@ -889,8 +952,8 @@ def trendtimeActions(m):
 def setrsivalue(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    global gnext
-    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    global gnext, genv
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['pair'][i]))
         markup.row(itemc)
@@ -917,17 +980,20 @@ def rsi(m):
        bot.register_next_step_handler_by_chat_id(cid, setrsi)
 
 def setrsi(m):
+    #set env
+    getEnv(m)
     cid = m.chat.id
     valor = m.text
-    global gdata, gframe, gpair
-    user = getUser(cid)
+    global gdata, gframe, gpair, genv
+    user = getUser(cid, genv)
     gdata = ("RSI", valor, cid, gframe, gpair)
+    # print(gdata)
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     if  int(user['token'].values) == cid:
-        indicators(gdata)
-        bot.send_message(cid, 'RSI added...done !!', parse_mode='Markdown')
+        add_indicators(gdata)
+        bot.send_message(cid, 'RSI added...done !!', parse_mode='Markdown', reply_markup=markup)
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')
 
@@ -936,8 +1002,8 @@ def setrsi(m):
 def setmavalue(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    global gnext
-    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    global gnext, genv
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['pair'][i]))
         markup.row(itemc)
@@ -964,17 +1030,19 @@ def ma(m):
        bot.register_next_step_handler_by_chat_id(cid, setma)
 
 def setma(m):
+    #set env
+    getEnv(m)
     cid = m.chat.id
     valor = m.text
-    global gdata, gframe, gpair
-    user = getUser(cid)
+    global gdata, gframe, gpair, genv
+    user = getUser(cid, genv)
     gdata = ("MA", valor, cid, gframe, gpair)
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     if  int(user['token'].values) == cid:
-        print(gdata)
-        indicators(gdata)
+        # print(gdata)
+        add_indicators(gdata)
         bot.send_message(cid, 'MA added...done !!', parse_mode='Markdown', reply_markup=markup)
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)   
@@ -984,20 +1052,22 @@ def setenv(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
     global gnext
-    itema = types.KeyboardButton('Testnet')
-    itemb = types.KeyboardButton('Mainnet')
+    itema = types.KeyboardButton('backtest')
+    itemb = types.KeyboardButton('main')
     markup.row(itema)
     markup.row(itemb)
     itemd = types.KeyboardButton('CANCEL')
     markup.row(itemd)    
-    bot.send_message(cid, 'Select enviroment (Testnet, Mainnet)', parse_mode='Markdown', reply_markup=markup)
+    bot.send_message(cid, 'Select enviroment (backtest, main)', parse_mode='Markdown', reply_markup=markup)
     bot.register_next_step_handler_by_chat_id(cid, insert_setenv)
 
 def insert_setenv(m):
+    #set env
+    getEnv(m)
     cid = m.chat.id
     valor = m.text
-    global gdata, gframe, gpair
-    user = getUser(cid)
+    global gdata, gframe, gpair, genv
+    user = getUser(cid, genv)
     gdata = (valor, cid)
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
@@ -1010,7 +1080,7 @@ def insert_setenv(m):
     else:
        if  int(user['token'].values) == cid:
             env(gdata)
-            bot.send_message(cid, 'Env added...done !!', parse_mode='Markdown')
+            bot.send_message(cid, 'Env added...done !!', parse_mode='Markdown', reply_markup=markup)
        else:    
             bot.send_message(cid, "User not autorized", parse_mode='Markdown')  
 
@@ -1019,9 +1089,12 @@ def insert_setenv(m):
 ##########List trend#####################################################################################################
 
 def listtrendmarket(m):
+    #get env
+    getEnv(m)
     cid = m.chat.id
+    global genv
     markup = types.ReplyKeyboardMarkup()
-    df = pd.read_sql("SELECT * FROM backtest.t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
     for i in df.index:
         itemc = types.KeyboardButton(str(df['pair'][i]))
         markup.row(itemc)
@@ -1058,16 +1131,18 @@ def timeframeTrend(m):
        bot.register_next_step_handler_by_chat_id(cid, trend)
 
 def trend(m):
+    #get env
+    getEnv(m)
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     valor = m.text
-    global gpair
-    user = getUser(cid)
+    global gpair, genv
+    user = getUser(cid, genv)
     
     if  int(user['token'].values) == cid:
-        trendParams = pd.read_sql("SELECT * FROM backtest.trend where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "'",con=db_con)
+        trendParams = pd.read_sql("SELECT * FROM " + genv + ".trend where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "'",con=db_con)
         a = trendParams.index.size
         bot.send_message(cid, "You selected " + gpair + " " + valor + " timeframe") 
         bot.send_message(cid, 'Trend in real time ' + str(tr.trendBot(trendParams['trend'][0],gpair, valor)) if a != 0 else 'No records found', parse_mode='Markdown', reply_markup=markup)    
