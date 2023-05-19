@@ -13,6 +13,7 @@ from datetime import datetime
 from database import getHistorical
 from database import operations
 import psycopg2
+import webbrowser
 
 # loading the .env file
 load_dotenv()
@@ -271,6 +272,7 @@ def callback_handler(call):
         'SetRSIValue': setrsivalue,
         'SetMAValue': setmavalue,
         'SetEnv': setenv,
+        'tradingView': tradingView,
     }
     # Get the function based on the call.data
     func = options.get(call.data)
@@ -333,7 +335,8 @@ def listMenu(m):
     button7 = InlineKeyboardButton("List Binance Top Volume", callback_data="ListBinanceTopVolume")
     button8 = InlineKeyboardButton("List Bot Status (Token-Timeframe)", callback_data="ListBotStatus")
     button9 = InlineKeyboardButton("List Enviroment (Backtest, Main)", callback_data="ListEnv")
-    button10 = InlineKeyboardButton("<< Back to list", callback_data="List")
+    button10 = InlineKeyboardButton("List Chart TradingView", callback_data="tradingView")
+    button11 = InlineKeyboardButton("<< Back to list", callback_data="List")
 
     # Create a nested list of buttons
     buttons = [[button1], [button2], [button3], [button4], [button5], [button6], [button7], [button8], [button9], [button10]]
@@ -608,6 +611,48 @@ def listEnv(m):
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')
 ##############ListEnv #################################################################
 
+##############Trading View #################################################################
+
+def tradingView(m):
+    # get env
+    getEnv(m)
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext, genv, gframe
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)    
+    bot.send_message(cid, 'Select the token you want to print in Trading View', parse_mode='Markdown', reply_markup=markup)
+    gnext = printChart
+    bot.register_next_step_handler_by_chat_id(cid, timeframe)
+ 
+def printChart(m):
+    # get env
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    valor = m.text
+    global gpair, genv
+    user = getUser(cid, genv)
+    if gpair == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/list')
+       markup.row(item)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else:   
+        if  int(user['token'].values) == cid:
+            symbol = 'BINANCE:'+gpair
+            chart_url = f'https://www.tradingview.com/chart/?symbol={symbol}'
+            webbrowser.open_new_tab(chart_url)     
+        else:    
+            bot.send_message(cid, "User not autorized", parse_mode='Markdown')   
+        
+##############Trading View #################################################################
+
 # @bot.message_handler(commands=['backtest'])
 # def params(m):
 #     cid = m.chat.id
@@ -754,7 +799,7 @@ def paramsActions(m):
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else: 
        if  int(user['token'].values) == cid:
-           paramsAction(gdata)
+           paramsAction(gdata, genv)
            bot.send_message(cid, 'Params has changed...done !!', parse_mode='Markdown', reply_markup=markup)
        else:    
            bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)
@@ -831,7 +876,7 @@ def addTokenActions(m):
        item = types.KeyboardButton('/list')
        markup.row(item)
        if int(user['token'].values) == cid:
-         addTokenDb(gdata)
+         addTokenDb(gdata, genv)
          bot.send_message(cid, 'Token added : ' + valor.upper(), parse_mode='Markdown', reply_markup=markup) if gcount == 1 else bot.send_message(cid, 'Error inserting pair: ' + valor.upper() + ', already exists, try again with other value...', parse_mode='Markdown', reply_markup=markup)
        else:    
          bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)                 
@@ -891,7 +936,7 @@ def deleteokenActions(m):
        item = types.KeyboardButton('/list')
        markup.row(item)
        if int(user['token'].values) == cid:
-         deleteTokenDb(gdata)
+         deleteTokenDb(gdata, genv)
          bot.send_message(cid, 'Token deleted : ' + valor.upper(), parse_mode='Markdown', reply_markup=markup) if gcount == 1 else bot.send_message(cid, 'Error deleting pair: ' + valor.upper() + ', value does not exists, try again with other value...', parse_mode='Markdown', reply_markup=markup)
        else:    
          bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)          
@@ -943,7 +988,7 @@ def trendtimeActions(m):
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     if  int(user['token'].values) == cid:
-        trendTime(gdata)
+        trendTime(gdata, genv)
         bot.send_message(cid, 'Trend time has changed...done !!', parse_mode='Markdown')
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown') 
@@ -992,7 +1037,7 @@ def setrsi(m):
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     if  int(user['token'].values) == cid:
-        add_indicators(gdata)
+        add_indicators(gdata, genv)
         bot.send_message(cid, 'RSI added...done !!', parse_mode='Markdown', reply_markup=markup)
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')
@@ -1042,7 +1087,7 @@ def setma(m):
     markup.row(itemd)
     if  int(user['token'].values) == cid:
         # print(gdata)
-        add_indicators(gdata)
+        add_indicators(gdata, genv)
         bot.send_message(cid, 'MA added...done !!', parse_mode='Markdown', reply_markup=markup)
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)   
