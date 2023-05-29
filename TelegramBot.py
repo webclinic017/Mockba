@@ -415,7 +415,7 @@ def params(m):
         a = df.index.size
         bot.send_message(cid, "You selected " + gpair + " " + valor + " timeframe") 
         for i in df.index:
-            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nMargingSell: *" + str(df['margingsell'][i]) + "\n*MargingBuy: *" + str(df['margingbuy'][i]) + "\n*ForceSell: *" + str(df['take_profit'][i]) + "\n*StopLoss: *" + str(df['stoploss'][i]) if a != 0 else 'No records found' , parse_mode='Markdown')
+            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nmargingsell: *" + str(df['margingsell'][i]) + "\n*margingbuy: *" + str(df['margingbuy'][i]) + "\n*ForceSell: *" + str(df['take_profit'][i]) + "\n*StopLoss: *" + str(df['stoploss'][i]) if a != 0 else 'No records found' , parse_mode='Markdown')
             bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)    
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')    
@@ -729,7 +729,7 @@ def get_p1(m):
        markup.row(item)
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else: 
-       bot.send_message(cid, 'Put your params to ' + "*" + '**Margingsell**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 0.03', parse_mode='Markdown', reply_markup=markup)
+       bot.send_message(cid, 'Put your params to ' + "*" + '**margingsell**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 0.03', parse_mode='Markdown', reply_markup=markup)
        bot.register_next_step_handler_by_chat_id(cid, get_p2)
 
 def get_p2(m):
@@ -973,7 +973,7 @@ def trendtime(m):
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else:
        gnext = set_params
-       bot.send_message(cid, 'Put your time and integer time (2,3,4,5,6,7,8,9,10,etc), normaltrend, downtrend and uptrend @ separated, example 6@-4@6 , it will update trendtime function', parse_mode='Markdown', reply_markup=markup)                        
+       bot.send_message(cid, 'Put your time and integer time (2,3,4,5,6,7,8,9,10,etc), normaltrend, downtrend and uptrend | separated, example 6@-4@6 , it will update trendtime function', parse_mode='Markdown', reply_markup=markup)                        
        bot.register_next_step_handler_by_chat_id(cid, trendtimeActions)
 
 def trendtimeActions(m):
@@ -983,7 +983,7 @@ def trendtimeActions(m):
     valor = m.text
     global gdata, gframe, gpair, genv
     user = getUser(cid, genv)
-    gdata = (valor.split('@')[0],valor.split('@')[1],valor.split('@')[2],cid,gpair,gframe)
+    gdata = (valor.split('|')[0],valor.split('|')[1],valor.split('|')[2],cid,gpair,gframe)
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)

@@ -64,13 +64,13 @@ def get_all_binance(symbol, kline_size, save=False):
     data['timestamp'] = pd.to_datetime(data['timestamp'], unit='ms')
     if len(data_df) > 0:
         temp_df = pd.DataFrame(data)
-        data_df = pd.concat([data_df,temp_df]).drop_duplicates(subset=['close_time'])
+        data_df = pd.concat([data_df,temp_df]).drop_duplicates(subset=['timestamp'])
         #data_df = data_df.append(temp_df).drop_duplicates(subset=['close_time'])
     else:
-        data_df = data.drop_duplicates(subset=['close_time'])
+        data_df = data.drop_duplicates(subset=['timestamp'])
     data_df.set_index('timestamp', inplace=True)
     if save:
-         data_df.to_sql(tablename, db_con, if_exists='append')
+         data_df.to_sql(tablename, db_con, if_exists='replace')
     print('All caught up..!')
     return data_df
 

@@ -1,61 +1,98 @@
+import os
+from dotenv import load_dotenv
+import sys
 import pandas as pd
 import numpy as np
 from math import floor
+import psycopg2
 from decimal import *
-import sqlite3
-import trend as trend
+#import trend as trend
+from indicators import trend
 from datetime import datetime
+# loading the .env file
+load_dotenv()
+# access the environment variables
+PATH_OPERATIONS = os.getenv("PATH_OPERATIONS")
+# Add the path to the system path
+sys.path.append(PATH_OPERATIONS)
+import operations
+db_con = operations.db_con
 
-# plt.rcParams['figure.figsize'] = (20, 10)
-# plt.style.use('fivethirtyeight')
-# Def act trader
-#db_con = sqlite3.connect('/var/lib/system/storage/mockbabacktest.db', check_same_thread=False)
-#db_con = sqlite3.connect('/opt/ivanex/storage/mockbabacktest.db', check_same_thread=False) #ivanex
-#db_con = sqlite3.connect('/opt/vicious/storage/mockbabacktest.db', check_same_thread=False) #vicious
-db_con = sqlite3.connect('storage/mockbabacktest.db', check_same_thread=False)
+# access the environment variables
+host = os.getenv("HOST")
+database = os.getenv("DATABASE")
+user = os.getenv("USR")
+password = os.getenv("PASSWD")
 
-def act_trader():
-    sql = "INSERT INTO trader values (0,0,0,0,0,0,0,0)"
+# start de trader to cero
+def act_trader(token, pair, timeframe, env):
+    sql = f"INSERT INTO {env}.trader (qty, nextopsval, nextops, sellflag, counterbuy, ops, close_time, trend, token, pair, timeframe) values (0,0,0,0,0,0,0,0,'{token}','{pair}','{timeframe}')"
     cur = db_con.cursor()
     cur.execute(sql)
     db_con.commit()
 
-def backtest(values):
+
+def backtest(values, env, token, timeframe, pair):
     # Retrieving historical data from database
     def get_historical_data():
-        query = "select timestamp close_time"
-        query += ' , cast(close as float) as close, close_time as ct'
-        query += '  from historical_'+ values.split('@')[2]
-        query += "  where timestamp >= '" + values.split('@')[0] + "'"
-        query += "  and timestamp <= '" + values.split('@')[1] + "'"
-        query += " order by 1"
+        table = pair + "_" + timeframe
+        f = "'" + values.split('|')[0] + "'"
+        t = "'" + values.split('|')[1] + "'"
+        query = f"select timestamp close_time"
+        query += f" , cast(close as float) as close, close_time as ct"
+        query += f'  from public."{table}"'
+        query += f"  where timestamp >= {f}"
+        query += f"  and timestamp <=  {t}"
+        query += f" order by 1"
         #print(query)
         df = pd.read_sql(query, con=db_con, index_col='close_time')
         # df.to_excel("data.xlsx")
         return df
 
-    eth = get_historical_data()
+    df = get_historical_data()
     ticker = []
     value = 0
     # Variables for backtest
     position = []
-    action = [] # Take action
-    invest = float(values.split('@')[3]) # Initial value
-    qty = [] # Qty buy
-    counterBuy = 0 # Counter how many ops buy
-    counterSell = 0 # Counter how manu ops sell
-    counterStopLoss = 0 # Counter to stop when to loose
-    counterForceSell = 0 # Force sell
+    action = []  # Take action
+    invest = float(values.split('|')[2])  # Initial value
+    qty = []  # Qty buy
+    counterbuy = 0  # Counter how many ops buy
+    counterSell = 0  # Counter how manu ops sell
+    counterStopLoss = 0  # Counter to stop when to loose
+    counterTakeProfit = 0  # Taking profit
     #
-    feeBuy = 0.099921 # 0.9%
-    feeBuy = round((feeBuy / 100),9) # Binance fee when buy
+    feeBuy = 0.099921  # 0.9%
+    feeBuy = round((feeBuy / 100), 9)  # Binance fee when buy
     #
-    feeSell = 0.1 # 1%
-    feeSell = round((feeSell / 100),9) # Binance fee sell
+    feeSell = 0.1  # 1%
+    feeSell = round((feeSell / 100), 9)  # Binance fee sell
     fee = 0
-    ################STRATEGY PARAMS############################
+    # get ma value
+    maval = pd.read_sql(
+        f"SELECT * FROM {env}.indicators where token = '{token}' and timeframe = '{timeframe}'and pair = '{pair}' and indicator = 'MA'", con=db_con)
+    # get rsi value
+    rsival = pd.read_sql(
+        f"SELECT * FROM {env}.indicators where token = '{token}' and timeframe = '{timeframe}' and pair = '{pair}' and indicator = 'RSI'", con=db_con)
+    # asigning values
+    ma_period = maval['value'][0].astype(int)
+    rsi_period = rsival['value'][0].astype(int)
+    # # Calculate moving average and RSI
+    df['close'] = pd.to_numeric(df['close'], errors='coerce')
+    df = df.dropna(subset=['close'])
+    df['ma'] = df['close'].rolling(ma_period).mean()
+    delta = df['close'].diff()
+    gain = delta.where(delta > 0, 0)
+    loss = -delta.where(delta < 0, 0)
+    avg_gain = gain.rolling(rsi_period).mean()
+    avg_loss = loss.rolling(rsi_period).mean()
+    rs = avg_gain / avg_loss
+    df['rsi'] = 100 - (100 / (1 + rs))
+    ################ STRATEGY PARAMS############################
     ###########################################################
-    trendParams = pd.read_sql("SELECT * FROM trend",con=db_con)
+    trendParams = pd.read_sql(
+        f"SELECT * FROM {env}.trend where token = '{token}' and timeframe = '{timeframe}' and pair = '{pair}'", con=db_con)
+
     def trendResul(trend):
         result = 'normaltrend'
         if trend < trendParams['downtrend'][0]:
@@ -63,11 +100,11 @@ def backtest(values):
         elif trend > trendParams['uptrend'][0]:
             result = 'uptrend'
         else:
-            result = 'normaltrend'  
-        return result          
+            result = 'normaltrend'
+        return result
 
     marginSell = 0
-    ForceSell = 0
+    take_profit = 0
     marginBuy = 0
     StopLoss = 0
     ############################################################
@@ -80,21 +117,31 @@ def backtest(values):
     vlfs = []
     vlsl = []
     vlparam = []
-    sellFlag = 0
+    sellflag = 0
 
-        # Def get next ops
+    # Def get next ops
     def getNextOps():
-        df = pd.read_sql('SELECT * FROM trader',con=db_con)
-        return df 
+        df = pd.read_sql(
+            f"SELECT * FROM {env}.trader where token = '{token}' and pair = '{pair}' and timeframe ='{timeframe}'", con=db_con)
+        return df
 
     # Def insert last data ops
     def act_trader_nextOps(data):
-        sql = ''' INSERT INTO trader(qty,nextOpsVal,nextOps,sellFlag,counterBuy,ops,close_time,trend)
-                VALUES(?,?,?,?,?,?,?,?) '''
-        cur = db_con.cursor()
-        cur.execute(sql, data)
-        db_con.commit()
-          
+        try:
+            conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+            cursor = conn.cursor()
+            # insert data into the database
+            sql = f"INSERT INTO {env}.trader(qty,nextopsval,nextOps,sellflag,counterbuy,ops,close_time,trend,token,pair,timeframe) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+            cursor.execute(sql, data)
+            # commit the transaction
+            conn.commit()
+        except psycopg2.Error as e:
+            print("Error:", e)
+        finally:
+            # close the cursor and connection
+            cursor.close()
+            if conn is not None:
+               conn.close()     
 
     print("Backtesting in progress, this take time...")
     # Firstly, we are defining a function named ‘get_macd’ 
@@ -112,14 +159,14 @@ def backtest(values):
         # df.to_excel("get_macd.xlsx")
         return df    
 
-    eth_macd = get_macd(eth['close'], 26, 12, 9)
-
-    # First, we are defining a function named 
-    # implement_macd_strategy which takes the stock prices (‘data’), and MACD 
-    # data (‘data’) as parameters
-    # Inside the function, we are creating three empty lists (buy_price, sell_price, 
-    # and macd_signal) in which the values will be appended while creating the 
-    # trading strategy.
+    eth_macd = get_macd(df['close'], 26, 12, 9)
+    print("eth_macd", eth_macd)
+    # # First, we are defining a function named 
+    # # implement_macd_strategy which takes the stock prices (‘data’), and MACD 
+    # # data (‘data’) as parameters
+    # # Inside the function, we are creating three empty lists (buy_price, sell_price, 
+    # # and macd_signal) in which the values will be appended while creating the 
+    # # trading strategy.
     def implement_macd_strategy(prices, data):    
         buy_price = []
         sell_price = []
@@ -152,9 +199,9 @@ def backtest(values):
                 sell_price.append(np.nan)
                 macd_signal.append(0)
                 
-        return buy_price, sell_price, macd_signal
+    #     return buy_price, sell_price, macd_signal
                 
-    buy_price, sell_price, macd_signal = implement_macd_strategy(eth['close'], eth_macd)
+    buy_price, sell_price, macd_signal = implement_macd_strategy(df['close'], eth_macd)
 
 
     for i in range(len(macd_signal)):
@@ -181,237 +228,279 @@ def backtest(values):
             vlsl.append(0)
             vlparam.append(0)
 
-    for i in range(len(eth['close'])):
+    for i in range(len(df['close'])):
         operations = getNextOps()
+        # Check if the DataFrame is empty
+        if operations.empty:
+            # print("DataFrame is empty")
+            data = (0, 0, 0, 0, 1, 0, 0, 0, token, pair, timeframe)
+            act_trader_nextOps(data)
         # First signals based on macd
-        if operations['counterBuy'][0] == 0:
-            params = pd.read_sql("SELECT * FROM parameters where trend= 'normaltrend'",con=db_con)
-            marginSell = float(params['margingsell'].values) #%
-            marginSell = marginSell / 100 + 1 # Earning from each sell
-            ForceSell = float(params['forcesell'].values / 100) # %
+        if operations['counterbuy'][0] == 0:
+            params = pd.read_sql(
+                f"SELECT * FROM {env}.parameters where trend= 'normaltrend' and token = '{token}' and pair = '{pair}' and timeframe = '{timeframe}'", con=db_con)
+            marginSell = float(params['margingsell'].values)  # %
+            marginSell = marginSell / 100 + 1  # Earning from each sell
+            take_profit = float(params['take_profit'].values / 100)  # %
             #
             #
-            marginBuy = float(params['margingbuy'].values) #%
-            marginBuy = marginBuy / 100 + 1 # Earning from each buy
-            StopLoss = float(params['stoploss'].values / 100) # %
+            marginBuy = float(params['margingbuy'].values)  # %
+            marginBuy = marginBuy / 100 + 1  # Earning from each buy
+            StopLoss = float(params['stoploss'].values / 100)  # %
             position[i] = 1
             action[i] = 'firstbuy'
-            counterBuy =  i
-            fee = (invest / eth['close'][i]) * feeBuy
-            qty[i] = (invest / eth['close'][i]) - fee
+            counterbuy = i
+            fee = (invest / df['close'][i]) * feeBuy
+            qty[i] = (invest / df['close'][i]) - fee
             vlms[i] = marginSell
-            nextOps[i] = eth['close'][i] * marginSell
-            sellFlag = 1
-            counterForceSell = 1
-            data = (qty[i],nextOps[i],'sell',sellFlag,1,'firstbuy',str('444444444'),'normaltrend')
+            nextOps[i] = df['close'][i] * marginSell
+            sellflag = 1
+            counterTakeProfit = 1
+            data = (qty[i], nextOps[i], 'sell', sellflag, 1, 'firstbuy', str(
+                '444444444'), 'normaltrend', token, pair, timeframe)
             act_trader_nextOps(data)
-        # Now implement our margin and sell if true
-        elif eth['close'][i] >= float(operations['nextOpsVal'][0]) and operations['sellFlag'][0] == 1:
+        # Now implement our margin and sell if signal for rsi and ma
+        elif df['close'][i] >= float(operations['nextopsval'][0]) and operations['sellflag'][0] == 1 and df['close'][i] < df['ma'] and df['rsi'] < 59:
             # print(i)
             for x in reversed(range(trendParams['trend'][0])):
-                val = i - x # last six periods (5 minutes each, total 30 minutes)
-                value = float(eth['close'][val])
+                # last six periods (5 minutes each, total 30 minutes)
+                val = i - x
+                value = float(df['close'][val])
                 ticker.append(value)
-            params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
-            marginSell = float(params['margingsell'].values) #%
-            marginSell = marginSell / 100 + 1 # Earning from each sell
-            ForceSell = float(params['forcesell'].values / 100) # %
+            trendquery = trendResul(trend.trend(ticker))    
+            params = pd.read_sql(f"SELECT * FROM parameters where trend= {trendquery} and token = '{token}' and pair = '{pair}' and timeframe = '{timeframe}'", con=db_con)
+            marginSell = float(params['margingsell'].values)  # %
+            marginSell = marginSell / 100 + 1  # Earning from each sell
+            take_profit = float(params['take_profit'].values / 100)  # %
             #
             #
-            marginBuy = float(params['margingbuy'].values) #%
-            marginBuy = marginBuy / 100 + 1 # Earning from each buy
-            StopLoss = float(params['stoploss'].values / 100) # %     
+            marginBuy = float(params['margingbuy'].values)  # %
+            marginBuy = marginBuy / 100 + 1  # Earning from each buy
+            StopLoss = float(params['stoploss'].values / 100)  # %
             # print(trendResul(trend.trend(ticker)))
             # print(i)
             # print(ticker)
             vltrend[i] = trend.trend(ticker)
             vlparam[i] = trendResul(trend.trend(ticker))
-            
+
             vlmb[i] = marginBuy
-            vlfs[i] = ForceSell
+            vlfs[i] = take_profit
             vlsl[i] = StopLoss
             counterSell = i
-            fee = (((invest / eth['close'][i - (i - counterBuy)]) * eth['close'][i])) * feeSell
-            qty[i] = (qty[i - (i - counterBuy)] * eth['close'][i]) - fee # Sell amount
+            fee = (
+                ((invest / df['close'][i - (i - counterbuy)]) * df['close'][i])) * feeSell
+            qty[i] = (qty[i - (i - counterbuy)] *
+                      df['close'][i]) - fee  # Sell amount
             action[i] = 'mySell'
-            nextOps[i] = qty[i] / ((qty[i] / eth['close'][i]) * marginBuy) # Next buy
-            sellFlag = 0
+            nextOps[i] = qty[i] / \
+                ((qty[i] / df['close'][i]) * marginBuy)  # Next buy
+            sellflag = 0
             counterStopLoss = 1
-            data = (float(qty[i]),float(nextOps[i]),'buy',sellFlag,1,'sell',str('444444444'),trendResul(trend.trend(ticker)))
+            data = (float(qty[i]), float(nextOps[i]), 'buy', sellflag, 1, 'sell', str(
+                '444444444'), trendResul(trend.trend(ticker)), token, pair, timeframe)
             act_trader_nextOps(data)
             ticker = []
-            # print(ForceSell)
-        # Force sell  24 hour
-        # elif eth['close'][i] >= (nextOps[i - (i - counterBuy)] * marginLossSell) and sellFlag == 1:
-        elif eth['close'][i] <=  (float(operations['nextOpsVal'][0]) - ((float(operations['nextOpsVal'][0]) * ForceSell))) and operations['sellFlag'][0] == 1:
+            # print(take_profit)
+        # Force sell
+        elif df['close'][i] <= (float(operations['nextopsval'][0]) - ((float(operations['nextopsval'][0]) * take_profit))) and operations['sellflag'][0] == 1:
             for x in reversed(range(trendParams['trend'][0])):
-                val = i - x # last six periods (5 minutes each, total 30 minutes)
-                value = float(eth['close'][val])
+                # last six periods (5 minutes each, total 30 minutes)
+                val = i - x
+                value = float(df['close'][val])
                 ticker.append(value)
             # trend.trend(ticker)
-            params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
-            marginSell = float(params['margingsell'].values) #%
-            marginSell = marginSell / 100 + 1 # Earning from each sell
-            ForceSell = float(params['forcesell'].values / 100) # %
+            trendquery = trendResul(trend.trend(ticker))    
+            params = pd.read_sql(f"SELECT * FROM parameters where trend= {trendquery} and token = '{token}' and pair = '{pair}' and timeframe = '{timeframe}'", con=db_con)
+           
+            marginSell = float(params['margingsell'].values)  # %
+            marginSell = marginSell / 100 + 1  # Earning from each sell
+            take_profit = float(params['take_profit'].values / 100)  # %
             #
             #
-            marginBuy = float(params['margingbuy'].values) #%
-            marginBuy = marginBuy / 100 + 1 # Earning from each buy
-            StopLoss = float(params['stoploss'].values / 100) # %
+            marginBuy = float(params['margingbuy'].values)  # %
+            marginBuy = marginBuy / 100 + 1  # Earning from each buy
+            StopLoss = float(params['stoploss'].values / 100)  # %
             vltrend[i] = trend.trend(ticker)
             vlparam[i] = trendResul(trend.trend(ticker))
             vlmb[i] = marginBuy
-            vlfs[i] = ForceSell
+            vlfs[i] = take_profit
             vlsl[i] = StopLoss
-            fee = (((invest / eth['close'][i - (i - counterBuy)]) * eth['close'][i])) * feeSell
-            qty[i] = (qty[i - (i - counterBuy)] * eth['close'][i]) - fee # Sell amount
-            nextOps[i] = qty[i] / ((qty[i] / eth['close'][i]) * marginBuy) # Next buy
-            sellFlag = 0
+            fee = (
+                ((invest / df['close'][i - (i - counterbuy)]) * df['close'][i])) * feeSell
+            qty[i] = (qty[i - (i - counterbuy)] *
+                      df['close'][i]) - fee  # Sell amount
+            nextOps[i] = qty[i] / \
+                ((qty[i] / df['close'][i]) * marginBuy)  # Next buy
+            sellflag = 0
             counterStopLoss = 1
-            action[i] = 'forceSell'
-            counterSell = i 
-            data = (float(qty[i]),float(nextOps[i]),'buy',sellFlag,1,'forceSell',str('444444444'),trendResul(trend.trend(ticker)))
+            action[i] = 'take_profit'
+            counterSell = i
+            data = (float(qty[i]), float(nextOps[i]), 'buy', sellflag, 1, 'take_profit', str(
+                '444444444'), trendResul(trend.trend(ticker)), token, pair, timeframe)
             act_trader_nextOps(data)
             ticker = []
-        # Now find the next value for sell or apply stop loss 
-        elif eth['close'][i] <= float(operations['nextOpsVal'][0]) and operations['sellFlag'][0] == 0:
+        # Now find the next value for sell or apply stop loss
+        elif df['close'][i] <= float(operations['nextopsval'][0]) and operations['sellflag'][0] == 0 and df['close'][i] > df['ma'] and df['rsi'] > 61:
             for x in reversed(range(trendParams['trend'][0])):
-                val = i - x # last six periods (5 minutes each, total 30 minutes)
-                value = float(eth['close'][val])
+                # last six periods (5 minutes each, total 30 minutes)
+                val = i - x
+                value = float(df['close'][val])
                 ticker.append(value)
             # trend.trend(ticker)
-            params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
-            marginSell = float(params['margingsell'].values) #%
-            marginSell = marginSell / 100 + 1 # Earning from each sell
-            ForceSell = float(params['forcesell'].values / 100) # %
+            trendquery = trendResul(trend.trend(ticker))    
+            params = pd.read_sql(f"SELECT * FROM parameters where trend= {trendquery} and token = '{token}' and pair = '{pair}' and timeframe = '{timeframe}'", con=db_con)
+          
+            marginSell = float(params['margingsell'].values)  # %
+            marginSell = marginSell / 100 + 1  # Earning from each sell
+            take_profit = float(params['take_profit'].values / 100)  # %
             #
             #
-            marginBuy = float(params['margingbuy'].values) #%
-            marginBuy = marginBuy / 100 + 1 # Earning from each buy
-            StopLoss = float(params['stoploss'].values / 100) # %
+            marginBuy = float(params['margingbuy'].values)  # %
+            marginBuy = marginBuy / 100 + 1  # Earning from each buy
+            StopLoss = float(params['stoploss'].values / 100)  # %
             vltrend[i] = trend.trend(ticker)
             vlparam[i] = trendResul(trend.trend(ticker))
             vlms[i] = marginSell
-            vlfs[i] = ForceSell
+            vlfs[i] = take_profit
             vlsl[i] = StopLoss
-            counterBuy = i
-            fee = (qty[i - (i - counterSell)] / eth['close'][i]) * feeBuy
-            qty[i] = (qty[i - (i - counterSell)] / eth['close'][i]) - fee # Buy amount
-            nextOps[i] = eth['close'][i] * marginSell
+            counterbuy = i
+            fee = (qty[i - (i - counterSell)] / df['close'][i]) * feeBuy
+            qty[i] = (qty[i - (i - counterSell)] /
+                      df['close'][i]) - fee  # Buy amount
+            nextOps[i] = df['close'][i] * marginSell
             action[i] = 'myBuy'
-            sellFlag = 1
-            counterForceSell = 1
-            data = (float(qty[i]),float(nextOps[i]), 'sell',sellFlag,1,'buy',str('444444444'),trendResul(trend.trend(ticker)))
+            sellflag = 1
+            counterTakeProfit = 1
+            data = (float(qty[i]), float(nextOps[i]), 'sell', sellflag, 1, 'buy', str(
+                '444444444'), trendResul(trend.trend(ticker)), token, pair, timeframe)
             act_trader_nextOps(data)
             ticker = []
-        # elif eth['close'][i] <= (nextOps[i - (i - counterSell)] * marginLossBuy) and counterStopLoss ==  24 and sellFlag == 0: 
-        # Stop Loss after 1 hour of inactivity
-        elif eth['close'][i] >=  (float(operations['nextOpsVal'][0]) + ((float(operations['nextOpsVal'][0]) * StopLoss))) and operations['sellFlag'][0] == 0: 
+        # Stop Loss after
+        elif df['close'][i] >= (float(operations['nextopsval'][0]) + ((float(operations['nextopsval'][0]) * StopLoss))) and operations['sellflag'][0] == 0:
             for x in reversed(range(trendParams['trend'][0])):
-                val = i - x # last six periods (5 minutes each, total 30 minutes)
-                value = float(eth['close'][val])
+                # last six periods (5 minutes each, total 30 minutes)
+                val = i - x
+                value = float(df['close'][val])
                 ticker.append(value)
-            # trend.trend(ticker) 
-            params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
-            marginSell = float(params['margingsell'].values) #%
-            marginSell = marginSell / 100 + 1 # Earning from each sell
-            ForceSell = float(params['forcesell'].values / 100) # %
+            # trend.trend(ticker)
+            trendquery = trendResul(trend.trend(ticker))    
+            params = pd.read_sql(f"SELECT * FROM parameters where trend= {trendquery} and token = '{token}' and pair = '{pair}' and timeframe = '{timeframe}'", con=db_con)
+       
+            marginSell = float(params['margingsell'].values)  # %
+            marginSell = marginSell / 100 + 1  # Earning from each sell
+            take_profit = float(params['take_profit'].values / 100)  # %
             #
             #
-            marginBuy = float(params['margingbuy'].values) #%
-            marginBuy = marginBuy / 100 + 1 # Earning from each buy
-            StopLoss = float(params['stoploss'].values / 100) # %
+            marginBuy = float(params['margingbuy'].values)  # %
+            marginBuy = marginBuy / 100 + 1  # Earning from each buy
+            StopLoss = float(params['stoploss'].values / 100)  # %
             vltrend[i] = trend.trend(ticker)
             vlparam[i] = trendResul(trend.trend(ticker))
             vlms[i] = marginSell
-            vlfs[i] = ForceSell
+            vlfs[i] = take_profit
             vlsl[i] = StopLoss
-            # print(counterStopLoss)     
+            # print(counterStopLoss)
             action[i] = 'stopLoss'
-            counterBuy =  i
-            fee = (qty[i - (i - counterSell)] / eth['close'][i]) * feeBuy
-            qty[i] = (qty[i - (i - counterSell)] / eth['close'][i]) - fee # Buy amount
-            nextOps[i] = (eth['close'][i] * marginSell)
-            sellFlag = 1   
-            counterForceSell = 1
-            data = (float(qty[i]),float(nextOps[i]),'sell',sellFlag,1,'stopLoss',str('444444444'),trendResul(trend.trend(ticker)))
+            counterbuy = i
+            fee = (qty[i - (i - counterSell)] / df['close'][i]) * feeBuy
+            qty[i] = (qty[i - (i - counterSell)] /
+                      df['close'][i]) - fee  # Buy amount
+            nextOps[i] = (df['close'][i] * marginSell)
+            sellflag = 1
+            counterTakeProfit = 1
+            data = (float(qty[i]), float(nextOps[i]), 'sell', sellflag, 1, 'stopLoss', str(
+                '444444444'), trendResul(trend.trend(ticker)), token, pair, timeframe)
             act_trader_nextOps(data)
             ticker = []
         elif macd_signal[i] == -1:
             position[i] = 0
             action[i] = 'sell'
-            counterStopLoss = counterStopLoss +1 
-            counterForceSell = counterForceSell + 1
+            counterStopLoss = counterStopLoss + 1
+            counterTakeProfit = counterTakeProfit + 1
         else:
             position[i] = position[i-1]
-            counterStopLoss = counterStopLoss + 1 
-            counterForceSell = counterForceSell + 1
-            vsellFlag = operations['sellFlag'][0]
+            counterStopLoss = counterStopLoss + 1
+            counterTakeProfit = counterTakeProfit + 1
+            vsellflag = operations['sellflag'][0]
             vqty = operations['qty'][0]
             vtrend = operations['trend'][0]
             vnextOps = 0
-            vticker = operations['nextOpsVal'][0]
+            vticker = operations['nextopsval'][0]
 
             for x in reversed(range(trendParams['trend'][0])):
-                val = i - x # last six periods (5 minutes each, total 30 minutes)
-                value = float(eth['close'][val])
+                # last six periods (5 minutes each, total 30 minutes)
+                val = i - x
+                value = float(df['close'][val])
                 ticker.append(value)
-            # trend.trend(ticker) 
-            params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
-            marginSell = float(params['margingsell'].values) #%
-            marginSell = marginSell / 100 + 1 # Earning from each sell
-            ForceSell = float(params['forcesell'].values / 100) # %
+            # trend.trend(ticker)
+            trendquery = trendResul(trend.trend(ticker))    
+            params = pd.read_sql(f"SELECT * FROM parameters where trend= {trendquery} and token = '{token}' and pair = '{pair}' and timeframe = '{timeframe}'", con=db_con)
+      
+            marginSell = float(params['margingsell'].values)  # %
+            marginSell = marginSell / 100 + 1  # Earning from each sell
+            take_profit = float(params['take_profit'].values / 100)  # %
             #
             #
-            marginBuy = float(params['margingbuy'].values) #%
-            marginBuy = marginBuy / 100 + 1 # Earning from each buy
-            StopLoss = float(params['stoploss'].values / 100) # %
+            marginBuy = float(params['margingbuy'].values)  # %
+            marginBuy = marginBuy / 100 + 1  # Earning from each buy
+            StopLoss = float(params['stoploss'].values / 100)  # %
             vltrend[i] = trend.trend(ticker)
             vlparam[i] = trendResul(trend.trend(ticker))
-            if vsellFlag == 1:    
-               vnextOps = round(vticker * marginSell,2) 
-            else:              
-               vnextOps = round(vqty / ((vqty / vticker * marginBuy)),2) # Next buy 
+            if vsellflag == 1:
+                vnextOps = round(vticker * marginSell, 2)
+            else:
+                vnextOps = round(
+                    vqty / ((vqty / vticker * marginBuy)), 2)  # Next buy
             if vtrend != trendResul(trend.trend(ticker)):
-                   # conditional depending on flags y trend is uptrend and sellflag + 1
-               if vsellFlag == 1 and trendResul(trend.trend(ticker)) == 'uptrend':
-                  data = (float(vqty),float(vnextOps),'ActTrend' + '-' + trendResul(trend.trend(ticker)),int(sellFlag),1,'ActTrend' + '-' + trendResul(trend.trend(ticker)),str('444444444'),trendResul(trend.trend(ticker)))
-                  act_trader_nextOps(data)
-               elif  trendResul(trend.trend(ticker)) == 'downtrend':  
-                  data = (float(vqty),float(vnextOps),'ActTrend' + '-' + trendResul(trend.trend(ticker)),int(sellFlag),1,'ActTrend' + '-' + trendResul(trend.trend(ticker)),str('444444444'),trendResul(trend.trend(ticker)))
-                  act_trader_nextOps(data)
-               elif  trendResul(trend.trend(ticker)) == 'normaltrend':  
-                  data = (float(vqty),float(vnextOps),'ActTrend' + '-' + trendResul(trend.trend(ticker)),int(sellFlag),1,'ActTrend' + '-' + trendResul(trend.trend(ticker)),str('444444444'),trendResul(trend.trend(ticker)))
-                  act_trader_nextOps(data)     
-            ticker = []  
+                # conditional depending on flags y trend is uptrend and sellflag + 1
+                if vsellflag == 1 and trendResul(trend.trend(ticker)) == 'uptrend':
+                    data = (float(vqty), float(vnextOps), 'ActTrend' + '-' + trendResul(trend.trend(ticker)), int(sellflag),
+                            1, 'ActTrend' + '-' + trendResul(trend.trend(ticker)), str('444444444'), trendResul(trend.trend(ticker)))
+                    act_trader_nextOps(data)
+                elif trendResul(trend.trend(ticker)) == 'downtrend':
+                    data = (float(vqty), float(vnextOps), 'ActTrend' + '-' + trendResul(trend.trend(ticker)), int(sellflag),
+                            1, 'ActTrend' + '-' + trendResul(trend.trend(ticker)), str('444444444'), trendResul(trend.trend(ticker)))
+                    act_trader_nextOps(data)
+                elif trendResul(trend.trend(ticker)) == 'normaltrend':
+                    data = (float(vqty), float(vnextOps), 'ActTrend' + '-' + trendResul(trend.trend(ticker)), int(sellflag),
+                            1, 'ActTrend' + '-' + trendResul(trend.trend(ticker)), str('444444444'), trendResul(trend.trend(ticker)))
+                    act_trader_nextOps(data)
+            ticker = []
 
     act_trader()
-    # macd = eth_macd['macd']
-    # signal = eth_macd['signal']
-    close_price = eth['close']
-    macd_signal = pd.DataFrame(macd_signal).rename(columns = {0:'macd_signal'}).set_index(eth.index)
-    position = pd.DataFrame(position).rename(columns = {0:'macd_position'}).set_index(eth.index)
-    action = pd.DataFrame(action).rename(columns = {0:'macd_action'}).set_index(eth.index)
-    qty = pd.DataFrame(qty).rename(columns = {0:'qty'}).set_index(eth.index)
-    nextOps = pd.DataFrame(nextOps).rename(columns = {0:'nextOps'}).set_index(eth.index)
-    vltrend = pd.DataFrame(vltrend).rename(columns = {0:'vltrend'}).set_index(eth.index)
-    vlmb = pd.DataFrame(vlmb).rename(columns = {0:'MBuy'}).set_index(eth.index)
-    vlms = pd.DataFrame(vlms).rename(columns = {0:'MSell'}).set_index(eth.index)
-    vlfs = pd.DataFrame(vlfs).rename(columns = {0:'FSell'}).set_index(eth.index)
-    vlsl = pd.DataFrame(vlsl).rename(columns = {0:'SLoss'}).set_index(eth.index)
-    vlparam = pd.DataFrame(vlparam).rename(columns = {0:'vlparam'}).set_index(eth.index)
+    # macd = df_macd['macd']
+    # signal = df_macd['signal']
+    close_price = df['close']
+    macd_signal = pd.DataFrame(macd_signal).rename(
+        columns={0: 'macd_signal'}).set_index(df.index)
+    position = pd.DataFrame(position).rename(
+        columns={0: 'macd_position'}).set_index(df.index)
+    action = pd.DataFrame(action).rename(
+        columns={0: 'macd_action'}).set_index(df.index)
+    qty = pd.DataFrame(qty).rename(columns={0: 'qty'}).set_index(df.index)
+    nextOps = pd.DataFrame(nextOps).rename(
+        columns={0: 'nextOps'}).set_index(df.index)
+    vltrend = pd.DataFrame(vltrend).rename(
+        columns={0: 'vltrend'}).set_index(df.index)
+    vlmb = pd.DataFrame(vlmb).rename(columns={0: 'MBuy'}).set_index(df.index)
+    vlms = pd.DataFrame(vlms).rename(columns={0: 'MSell'}).set_index(df.index)
+    vlfs = pd.DataFrame(vlfs).rename(columns={0: 'FSell'}).set_index(df.index)
+    vlsl = pd.DataFrame(vlsl).rename(columns={0: 'SLoss'}).set_index(df.index)
+    vlparam = pd.DataFrame(vlparam).rename(
+        columns={0: 'vlparam'}).set_index(df.index)
     # frames = [close_price, macd, signal, macd_signal, position, action, qty, nextOps]
-    frames = [close_price, action, qty, nextOps, vltrend, vlmb, vlms, vlfs, vlsl, vlparam]
-    strategy = pd.concat(frames, join = 'inner', axis = 1)
+    frames = [close_price, action, qty, nextOps,
+              vltrend, vlmb, vlms, vlfs, vlsl, vlparam]
+    strategy = pd.concat(frames, join='inner', axis=1)
 
     print("The strategy")
     # strategy = strategy[strategy['macd_action'] != '0']
     # print(strategy)
-    strategy.to_excel(values.split('@')[2] + "-strategy.xlsx")
+    strategy.to_excel(pairs + "_" + timeframe + "-strategy.xlsx")
 
     print("End")
 
+
 start = datetime.now()
-#backtest('2021-02-11@2021-10-31@ETHUSDT@60')
-backtest('2021-07-01@2021-07-31@BTCSTBUSD1m@100')
+backtest('2023-05-01|2023-05-31|100','backtest', '556159355', '5m', 'LUNCBUSD')
 print('Tiempo de ejecución  ' + str(datetime.now() - start))

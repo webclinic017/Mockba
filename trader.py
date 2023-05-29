@@ -129,12 +129,12 @@ while True:
             #print('First Buy')
             ticker = []
             params = pd.read_sql("SELECT * FROM parameters where trend= 'normaltrend'",con=db_con)
-            marginSell = float(params['margingsell'][0]) #%
+            marginSell = float(params['ma_margingsell'][0]) #%
             marginSell = marginSell / 100 + 1 # Earning from each sell
             ForceSell = float(params['forcesell'][0] / 100) # %
             #
             #
-            marginBuy = float(params['margingbuy'][0]) #%
+            marginBuy = float(params['ma_margingbuy'][0]) #%
             marginBuy = marginBuy / 100 + 1 # Earning from each buy
             StopLoss = float(params['stoploss'][0] / 100) # %  
             #
@@ -165,12 +165,12 @@ while True:
                 value = float(eth[4][val])
                 ticker.append(value)
             params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
-            marginSell = float(params['margingsell'][0]) #%
+            marginSell = float(params['ma_margingsell'][0]) #%
             marginSell = marginSell / 100 + 1 # Earning from each sell
             ForceSell = float(params['forcesell'][0] / 100) # %
             #
             #
-            marginBuy = float(params['margingbuy'][0]) #%
+            marginBuy = float(params['ma_margingbuy'][0]) #%
             marginBuy = marginBuy / 100 + 1 # Earning from each buy
             StopLoss = float(params['stoploss'][0] / 100) # %   
             #
@@ -201,12 +201,12 @@ while True:
                 value = float(eth[4][val])
                 ticker.append(value)
             params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
-            marginSell = float(params['margingsell'][0]) #%
+            marginSell = float(params['ma_margingsell'][0]) #%
             marginSell = marginSell / 100 + 1 # Earning from each sell
             ForceSell = float(params['forcesell'][0] / 100) # %
             #
             #
-            marginBuy = float(params['margingbuy'][0]) #%
+            marginBuy = float(params['ma_margingbuy'][0]) #%
             marginBuy = marginBuy / 100 + 1 # Earning from each buy
             StopLoss = float(params['stoploss'][0] / 100) # %   
             #
@@ -237,12 +237,12 @@ while True:
                 value = float(eth[4][val])
                 ticker.append(value)
             params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
-            marginSell = float(params['margingsell'][0]) #%
+            marginSell = float(params['ma_margingsell'][0]) #%
             marginSell = marginSell / 100 + 1 # Earning from each sell
             ForceSell = float(params['forcesell'][0] / 100) # %
             #
             #
-            marginBuy = float(params['margingbuy'][0]) #%
+            marginBuy = float(params['ma_margingbuy'][0]) #%
             marginBuy = marginBuy / 100 + 1 # Earning from each buy
             StopLoss = float(params['stoploss'][0] / 100) # %   
             #
@@ -271,12 +271,12 @@ while True:
                 value = float(eth[4][val])
                 ticker.append(value)
             params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
-            marginSell = float(params['margingsell'][0]) #%
+            marginSell = float(params['ma_margingsell'][0]) #%
             marginSell = marginSell / 100 + 1 # Earning from each sell
             ForceSell = float(params['forcesell'][0] / 100) # %
             #
             #
-            marginBuy = float(params['margingbuy'][0]) #%
+            marginBuy = float(params['ma_margingbuy'][0]) #%
             marginBuy = marginBuy / 100 + 1 # Earning from each buy
             StopLoss = float(params['stoploss'][0] / 100) # %   
             #
@@ -322,12 +322,12 @@ while True:
         #print(trendResul(trend.trend(ticker))) 
         #print(trend.trend(ticker)) 
         params = pd.read_sql("SELECT * FROM parameters where trend= '" + trendResul(trend.trend(ticker)) + "'",con=db_con)
-        marginSell = float(params['margingsell'][0]) #%
+        marginSell = float(params['ma_margingsell'][0]) #%
         marginSell = marginSell / 100 + 1 # Earning from each sell
         ForceSell = float(params['forcesell'][0] / 100) # %
         #
         #
-        marginBuy = float(params['margingbuy'][0]) #%
+        marginBuy = float(params['ma_margingbuy'][0]) #%
         marginBuy = marginBuy / 100 + 1 # Earning from each buy
         StopLoss = float(params['stoploss'][0] / 100) # % 
         if vsellFlag == 1:    
