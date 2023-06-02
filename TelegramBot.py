@@ -5,7 +5,6 @@ import requests
 import json
 from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-import sqlite3
 import pandas as pd
 from binance.client import Client
 from indicators import trend as tr
@@ -14,6 +13,7 @@ from database import getHistorical
 from database import operations
 import psycopg2
 import webbrowser
+import backtrader
 
 # loading the .env file
 load_dotenv()
@@ -105,7 +105,7 @@ def paramsAction(data, env):
         conn = psycopg2.connect(host=host, database=database, user=user, password=password)
         cursor = conn.cursor()
         # insert data into the database
-        sql = "insert into " + env + ".parameters (trend, margingsell, margingbuy, take_profit, stoploss, token, pair, timeframe) values (%s,%s,%s,%s,%s,%s,%s,%s)"
+        sql = "insert into " + env + ".parameters (trend, margingsell, margingbuy, stoploss, token, pair, timeframe) values (%s,%s,%s,%s,%s,%s,%s)"
         cursor.execute(sql, data)
         gcount = cursor.rowcount
         # commit the transaction
@@ -273,6 +273,7 @@ def callback_handler(call):
         'SetMAValue': setmavalue,
         'SetEnv': setenv,
         'tradingView': tradingView,
+        'Backtest': backtest
     }
     # Get the function based on the call.data
     func = options.get(call.data)
@@ -415,7 +416,7 @@ def params(m):
         a = df.index.size
         bot.send_message(cid, "You selected " + gpair + " " + valor + " timeframe") 
         for i in df.index:
-            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nmargingsell: *" + str(df['margingsell'][i]) + "\n*margingbuy: *" + str(df['margingbuy'][i]) + "\n*ForceSell: *" + str(df['take_profit'][i]) + "\n*StopLoss: *" + str(df['stoploss'][i]) if a != 0 else 'No records found' , parse_mode='Markdown')
+            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nmargingsell: *" + str(df['margingsell'][i]) + "\n*margingbuy: *" + str(df['margingbuy'][i]) + "\n*StopLoss: *" + str(df['stoploss'][i]) if a != 0 else 'No records found' , parse_mode='Markdown')
             bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)    
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')    
@@ -652,34 +653,59 @@ def printChart(m):
             bot.send_message(cid, "User not autorized", parse_mode='Markdown')   
         
 ##############Trading View #################################################################
+def backtest(m):
+    #get env
+    getEnv(m)
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext, genv, gframe
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)
+    bot.send_message(cid, 'Add your pair in Upper Case, example ETHUBUSD', parse_mode='Markdown', reply_markup=markup)
+    gnext = paramsdate
+    bot.register_next_step_handler_by_chat_id(cid, timeframe)
 
-# @bot.message_handler(commands=['backtest'])
-# def params(m):
-#     cid = m.chat.id
-#     markup = types.ReplyKeyboardMarkup()
-#     itemd = types.KeyboardButton('/list')
-#     markup.row(itemd)
-#     bot.send_message(cid, 'Put your params, init date, end data, ticker and invest, @ separated, example 2021-09-01@2021-10-31@ETHUSDT1d@400', parse_mode='Markdown', reply_markup=markup)
-#     bot.register_next_step_handler_by_chat_id(cid, backtestActions)    
+
+def paramsdate(m):
+    #get env
+    cid = m.chat.id
+    global gnext, genv, gframe
+    gframe = m.text
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)
+    bot.send_message(cid, 'Add your date an initial capital, ex, 2023-05-01|2023-05-02|100 user (|) as separator', parse_mode='Markdown', reply_markup=markup)
+    bot.register_next_step_handler_by_chat_id(cid, backtestActions)    
 
 
-# def backtestActions(m):
-#     cid = m.chat.id
-#     valor = m.text
-#     markup = types.ReplyKeyboardMarkup()
-#     itemd = types.KeyboardButton('/list')
-#     markup.row(itemd)
-#     if  int(user['token'].values) == cid:
-#         start = datetime.now()
-#         bot.send_message(cid, 'Backtesting, this can take some time....')
-#         backtradereth2.backtest(valor)  
-#         bot.send_message(cid, 'Execution time  ' + str(datetime.now() - start))
-#         bot.send_message(cid, 'Backtest ready, now you can download the excel file !!', parse_mode='Markdown')
-#         file = open(valor.split('@')[2]+'-strategy.xlsx','rb')
-#         print(file)
-#         bot.send_document(cid,file)
-#     else:    
-#         bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         
+def backtestActions(m):
+    #get env
+    getEnv(m)
+    cid = m.chat.id
+    valor = m.text
+    global genv, gpair, gframe
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    user = getUser(cid, genv)
+    if  int(user['token'].values) == int(cid):
+        start = datetime.now()
+        if backtrader.check_params(genv, cid, gpair, gframe):
+           bot.send_message(cid,'No data for this selection, check you have parameter, ma, rsi and historical data for ' + str(gpair) + ' of ' + str(gframe))
+        else:   
+           bot.send_message(cid, 'Backtesting, this can take some time....')
+           backtrader.backtest(valor, genv, cid, gframe, gpair)  
+           bot.send_message(cid, 'Execution time  ' + str(datetime.now() - start))
+           bot.send_message(cid, 'Backtest ready, now you can download the excel file !!', parse_mode='Markdown')
+           file = open(str(gpair) + '_' + str(gframe) + '_' + str(cid) +'-strategy.xlsx','rb')
+           print(file)
+           bot.send_document(cid,file)
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         
 
 ###############Set params #########################################
 ###################################################################
@@ -713,7 +739,7 @@ def set_params(m):
     markup.row(uptrend)
     markup.row(downtrend)
     markup.row(itemc)
-    bot.send_message(cid, 'Put your params, it will update params for trend(normaltrend,uptrend and downtrend), margingsell, margingbuy, forcesell and stoploss', parse_mode='Markdown', reply_markup=markup)
+    bot.send_message(cid, 'Put your params, it will update params for trend(normaltrend,uptrend and downtrend), margingsell, margingbuy stoploss', parse_mode='Markdown', reply_markup=markup)
     bot.register_next_step_handler_by_chat_id(cid, get_p1)
 
 def get_p1(m):
@@ -746,22 +772,6 @@ def get_p2(m):
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else: 
        bot.send_message(cid, 'Put your params to '+ "*" + '**Marginbuy**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 0.03', parse_mode='Markdown', reply_markup=markup)
-       bot.register_next_step_handler_by_chat_id(cid, get_p3)
-
-def get_p3(m):
-    cid = m.chat.id
-    global gp3
-    markup = types.ReplyKeyboardMarkup()
-    itemc = types.KeyboardButton('CANCEL')
-    gp3 = m.text
-    markup.row(itemc)
-    if gp3 == 'CANCEL':
-       markup = types.ReplyKeyboardMarkup()
-       item = types.KeyboardButton('/list')
-       markup.row(item)
-       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
-    else: 
-       bot.send_message(cid, 'Put your params to '+ "*" + '**Takeprofit**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 0.03', parse_mode='Markdown', reply_markup=markup)
        bot.register_next_step_handler_by_chat_id(cid, get_p4)
 
 def get_p4(m):
@@ -843,8 +853,8 @@ def gethistorical(m):
        if int(user['token'].values) == cid:
          bot.send_message(cid, 'Getting historical data of ' +  valor + ', this can take some time, be pacient...')
          getHistorical.api_telegram = str(user['token'].values)
-         getHistorical.schema = "backtest"
-         getHistorical.get_all_binance(gpair, valor, save=True)
+         # getHistorical.schema = "backtest"
+         getHistorical.get_all_binance(gpair, valor, cid, save=True)
          bot.send_message(cid, 'Done !!', parse_mode='Markdown', reply_markup=markup)
        else:    
          bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup) 

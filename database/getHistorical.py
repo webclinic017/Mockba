@@ -38,10 +38,11 @@ def minutes_of_new_data(symbol, kline_size, data, source):
     return old, new
                       
 
-def get_all_binance(symbol, kline_size, save=False):
+def get_all_binance(symbol, kline_size, token, save=False):
     global data_df
-    tablename = symbol + "_" + kline_size
+    tablename = symbol + "_" + kline_size + '_' + str(token)
     check_table_exists = f"SELECT count(*) FROM information_schema.tables WHERE table_name = '{tablename}';"
+
     table_exists = pd.read_sql(check_table_exists, db_con).iloc[0, 0] > 0
     if table_exists:
         data_df = pd.read_sql('Select * from public."' + tablename + '"', db_con)
@@ -51,12 +52,12 @@ def get_all_binance(symbol, kline_size, save=False):
         symbol, kline_size, data_df, source="binance")
     delta_min = (newest_point - oldest_point).total_seconds()/60
     available_data = math.ceil(delta_min/binsizes[kline_size])
-    if oldest_point == datetime.strptime("01 Jan 2021", '%d %b %Y'):
-        print('Downloading all available %s data for %s. Be patient..!' %
-              (kline_size, symbol))
-    else:
-        print('Downloading %d minutes of new data available for %s, i.e. %d instances of %s data.' % (
-            delta_min, symbol, available_data, kline_size))
+    # if oldest_point == datetime.strptime("01 Jan 2021", '%d %b %Y'):
+    #     print('Downloading all available %s data for %s. Be patient..!' %
+    #           (kline_size, symbol))
+    # else:
+    #     print('Downloading %d minutes of new data available for %s, i.e. %d instances of %s data.' % (
+    #         delta_min, symbol, available_data, kline_size))
     klines = binance_client.get_historical_klines(symbol, kline_size, oldest_point.strftime(
         "%d %b %Y %H:%M:%S"), newest_point.strftime("%d %b %Y %H:%M:%S"))  
     data = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close',
@@ -71,7 +72,7 @@ def get_all_binance(symbol, kline_size, save=False):
     data_df.set_index('timestamp', inplace=True)
     if save:
          data_df.to_sql(tablename, db_con, if_exists='replace')
-    print('All caught up..!')
+    #print('All caught up..!')
     return data_df
 
 # get_all_binance("LUNCBUSD", "5m", save=True)

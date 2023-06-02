@@ -17,6 +17,8 @@ PATH_OPERATIONS = os.getenv("PATH_OPERATIONS")
 sys.path.append(PATH_OPERATIONS)
 import operations
 db_con = operations.db_con
+#GetHistorical
+from database import getHistorical
 
 # access the environment variables
 host = os.getenv("HOST")
@@ -45,7 +47,7 @@ def check_params(env, token, pair, timeframe):
     ##Check param
     param = pd.read_sql(f"SELECT * FROM {env}.parameters where token = '{token}' and timeframe = '{timeframe}' and pair = '{pair}'", con=db_con)
     ##Check table
-    check_table_exists = f"SELECT count(*) FROM information_schema.tables WHERE table_name = '{pair}_{timeframe}';"
+    check_table_exists = f"SELECT count(*) FROM information_schema.tables WHERE table_name = '{pair}_{timeframe}_{token}';"
     table_exists = pd.read_sql(check_table_exists, db_con).iloc[0, 0] > 0
     if ma.empty:
        return True
@@ -60,10 +62,13 @@ def check_params(env, token, pair, timeframe):
 
 def backtest(values, env, token, timeframe, pair):
 
+    #Fill historical allways before run the process
+    getHistorical.get_all_binance(pair, timeframe, token, save=True)
+
     
     # Retrieving historical data from database
     def get_historical_data():
-        table = pair + "_" + timeframe
+        table = pair + "_" + timeframe + '_' + str(token)
         f = "'" + values.split('|')[0] + "'"
         t = "'" + values.split('|')[1] + "'"
         query = f"select timestamp close_time"
@@ -132,7 +137,6 @@ def backtest(values, env, token, timeframe, pair):
         return result
 
     marginSell = 0
-    take_profit = 0
     marginBuy = 0
     StopLoss = 0
     ############################################################
@@ -310,7 +314,6 @@ def backtest(values, env, token, timeframe, pair):
                 f"SELECT * FROM {env}.parameters where trend= 'normaltrend' and token = '{token}' and pair = '{pair}' and timeframe = '{timeframe}'", con=db_con)
             marginSell = float(params['margingsell'].values)  # %
             marginSell = marginSell / 100 + 1  # Earning from each sell
-            take_profit = float(params['take_profit'].values / 100)  # %
             #
             #
             marginBuy = float(params['margingbuy'].values)  # %
@@ -341,7 +344,6 @@ def backtest(values, env, token, timeframe, pair):
             params = pd.read_sql(f"SELECT * FROM {env}.parameters where trend= '{trendquery}' and token = '{token}' and pair = '{pair}' and timeframe = '{timeframe}'", con=db_con)
             marginSell = float(params['margingsell'].values)  # %
             marginSell = marginSell / 100 + 1  # Earning from each sell
-            take_profit = float(params['take_profit'].values / 100)  # %
             #
             #
             marginBuy = float(params['margingbuy'].values)  # %
@@ -354,7 +356,6 @@ def backtest(values, env, token, timeframe, pair):
             vlparam[i] = trendResul(trend.trend(ticker))
 
             vlmb[i] = marginBuy
-            vlfs[i] = take_profit
             vlsl[i] = StopLoss
             vlma[i] = df['ma'][i]
             vlrsi[i] = df['rsi'][i]
@@ -374,7 +375,7 @@ def backtest(values, env, token, timeframe, pair):
             ticker = []
             # print(take_profit)
         # Force sell
-        elif (df['close'][i] <= (float(operations['nextopsval'][0]) - ((float(operations['nextopsval'][0]) * take_profit)))) & (operations['sellflag'][0] == 1):
+        elif (df['close'][i] <= (float(operations['nextopsval'][0]) - ((float(operations['nextopsval'][0]) * StopLoss)))) & (operations['sellflag'][0] == 1):
             for x in reversed(range(trendParams['trend'][0])):
                 # last six periods (5 minutes each, total 30 minutes)
                 val = i - x
@@ -386,7 +387,6 @@ def backtest(values, env, token, timeframe, pair):
            
             marginSell = float(params['margingsell'].values)  # %
             marginSell = marginSell / 100 + 1  # Earning from each sell
-            take_profit = float(params['take_profit'].values / 100)  # %
             #
             #
             marginBuy = float(params['margingbuy'].values)  # %
@@ -395,7 +395,6 @@ def backtest(values, env, token, timeframe, pair):
             vltrend[i] = trend.trend(ticker)
             vlparam[i] = trendResul(trend.trend(ticker))
             vlmb[i] = marginBuy
-            vlfs[i] = take_profit
             vlsl[i] = StopLoss
             vlma[i] = df['ma'][i]
             vlrsi[i] = df['rsi'][i]
@@ -407,9 +406,9 @@ def backtest(values, env, token, timeframe, pair):
                 ((qty[i] / df['close'][i]) * marginBuy)  # Next buy
             sellflag = 0
             counterStopLoss = 1
-            action[i] = 'take_profit'
+            action[i] = 'stopLoss'
             counterSell = i
-            data = (float(qty[i]), float(nextOps[i]), 'buy', sellflag, 1, 'take_profit', str(
+            data = (float(qty[i]), float(nextOps[i]), 'buy', sellflag, 1, 'stopLoss', str(
                 '444444444'), trendResul(trend.trend(ticker)), token, pair, timeframe)
             act_trader_nextOps(data)
             ticker = []
@@ -426,7 +425,6 @@ def backtest(values, env, token, timeframe, pair):
           
             marginSell = float(params['margingsell'].values)  # %
             marginSell = marginSell / 100 + 1  # Earning from each sell
-            take_profit = float(params['take_profit'].values / 100)  # %
             #
             #
             marginBuy = float(params['margingbuy'].values)  # %
@@ -435,7 +433,6 @@ def backtest(values, env, token, timeframe, pair):
             vltrend[i] = trend.trend(ticker)
             vlparam[i] = trendResul(trend.trend(ticker))
             vlms[i] = marginSell
-            vlfs[i] = take_profit
             vlsl[i] = StopLoss
             vlma[i] = df['ma'][i]
             vlrsi[i] = df['rsi'][i]
@@ -464,7 +461,6 @@ def backtest(values, env, token, timeframe, pair):
        
             marginSell = float(params['margingsell'].values)  # %
             marginSell = marginSell / 100 + 1  # Earning from each sell
-            take_profit = float(params['take_profit'].values / 100)  # %
             #
             #
             marginBuy = float(params['margingbuy'].values)  # %
@@ -473,7 +469,6 @@ def backtest(values, env, token, timeframe, pair):
             vltrend[i] = trend.trend(ticker)
             vlparam[i] = trendResul(trend.trend(ticker))
             vlms[i] = marginSell
-            vlfs[i] = take_profit
             vlsl[i] = StopLoss
             vlma[i] = df['ma'][i]
             vlrsi[i] = df['rsi'][i]
@@ -516,7 +511,6 @@ def backtest(values, env, token, timeframe, pair):
       
             marginSell = float(params['margingsell'].values)  # %
             marginSell = marginSell / 100 + 1  # Earning from each sell
-            take_profit = float(params['take_profit'].values / 100)  # %
             #
             #
             marginBuy = float(params['margingbuy'].values)  # %
@@ -573,21 +567,21 @@ def backtest(values, env, token, timeframe, pair):
               vltrend, vlmb, vlms, vlfs, vlsl, vlparam, vlma, vlrsi]
     strategy = pd.concat(frames, join='inner', axis=1)
 
-    print("The strategy")
+    #print("The strategy")
     # strategy = strategy[strategy['op_action'] != '0']
     # print(strategy)
-    strategy.to_excel(pair + "_" + timeframe + "-strategy.xlsx")
+    strategy.to_excel(pair + "_" + timeframe + '_' + str(token) + "-strategy.xlsx")
 
-    print("End")
+    #print("End")
 
 
-start = datetime.now()
-pair = 'LUNCBUSD'
-token = '556159355'
-timeframe = '5m'
-env = 'backtest'
-if check_params(env, token, pair, timeframe):
-   print('No data for this selection, check you have parameter, ma, rsi and historical data for ' + pair + ' of ' + timeframe)
-else:   
-   backtest('2023-05-01|2023-05-02|100',env, token, timeframe, pair)
-print('Tiempo de ejecución  ' + str(datetime.now() - start))
+# start = datetime.now()
+# pair = 'LUNCBUSD'
+# token = '556159355'
+# timeframe = '5m'
+# env = 'backtest'
+# if check_params(env, token, pair, timeframe):
+#    print('No data for this selection, check you have parameter, ma, rsi and historical data for ' + pair + ' of ' + timeframe)
+# else:   
+#    backtest('2023-05-01|2023-05-02|100',env, token, timeframe, pair)
+# print('Tiempo de ejecución  ' + str(datetime.now() - start))
