@@ -76,7 +76,28 @@ def addTokenDb(data, env):
         # close the cursor and connection
         cursor.close()
         if conn is not None:
-           conn.close()    
+           conn.close()  
+
+# Def copytrade
+def copyTrade(data, env):
+    global gcount
+    try:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = f"select * from {env}.copy_params(%s, %s, %s)"
+        cursor.execute(sql, data)
+        gcount = cursor.rowcount
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
+        gcount = 0
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close()                 
 
 # Def deletetoken
 def deleteTokenDb(data, env):
@@ -220,7 +241,7 @@ def command_list(m):
     cid = m.chat.id
     help_text = "Available options."
     # Define the buttons
-    button1 = InlineKeyboardButton("Set Enviroment (Testnet or Mainnet)", callback_data="SetEnv")
+    button1 = InlineKeyboardButton("Set Enviroment (Backtest or Main)", callback_data="SetEnv")
     button2 = InlineKeyboardButton("Start/Stop Bot-Token-Timeframe", callback_data="SetBotStatus")
     button3 = InlineKeyboardButton("Tokens Menu", callback_data="TokensMenu")
     button4 = InlineKeyboardButton("Historical", callback_data="Historical")
@@ -273,7 +294,8 @@ def callback_handler(call):
         'SetMAValue': setmavalue,
         'SetEnv': setenv,
         'tradingView': tradingView,
-        'Backtest': backtest
+        'Backtest': backtest, 
+        'CopyBacktestToReal': CopyBacktestToReal
     }
     # Get the function based on the call.data
     func = options.get(call.data)
@@ -291,7 +313,7 @@ def paramsmenu(m):
     button3 = InlineKeyboardButton("Set RSIValue", callback_data="SetRSIValue")
     button4 = InlineKeyboardButton("Set MAValue", callback_data="SetMAValue")
     button5 = InlineKeyboardButton("Set SignalsValue", callback_data="SetSignalsValue")
-    button6 = InlineKeyboardButton("Copy Backtest To Mainnet", callback_data="CopyBacktestToReal")
+    button6 = InlineKeyboardButton("Copy Backtest To Main", callback_data="CopyBacktestToReal")
     button7 = InlineKeyboardButton("<< Back to List", callback_data="List")
 
     # Create a nested list of buttons
@@ -652,7 +674,7 @@ def printChart(m):
         else:    
             bot.send_message(cid, "User not autorized", parse_mode='Markdown')   
         
-##############Trading View #################################################################
+##############Backtest #################################################################
 def backtest(m):
     #get env
     getEnv(m)
@@ -692,21 +714,81 @@ def backtestActions(m):
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     user = getUser(cid, genv)
-    if  int(user['token'].values) == int(cid):
-        start = datetime.now()
-        if backtrader.check_params(genv, cid, gpair, gframe):
-           bot.send_message(cid,'No data for this selection, check you have parameter, ma, rsi and historical data for ' + str(gpair) + ' of ' + str(gframe))
-        else:   
-           bot.send_message(cid, 'Backtesting, this can take some time....')
-           backtrader.backtest(valor, genv, cid, gframe, gpair)  
-           bot.send_message(cid, 'Execution time  ' + str(datetime.now() - start))
-           bot.send_message(cid, 'Backtest ready, now you can download the excel file !!', parse_mode='Markdown')
-           file = open(str(gpair) + '_' + str(gframe) + '_' + str(cid) +'-strategy.xlsx','rb')
-           print(file)
-           bot.send_document(cid,file)
-    else:    
-        bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         
+    if valor == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/list')
+       markup.row(item)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else:   
+        if  int(user['token'].values) == int(cid):
+            start = datetime.now()
+            if backtrader.check_params(genv, cid, gpair, gframe):
+               bot.send_message(cid,'No data for this selection, check you have parameter, ma, rsi and historical data for ' + str(gpair) + ' of ' + str(gframe))
+            else:  
+               backtrader.backtest(valor, genv, cid, gframe, gpair) 
+               bot.send_message(cid, backtrader.getMessageGetHistorical()) 
+               bot.send_message(cid, 'Execution time  ' + str(datetime.now() - start))
+               bot.send_message(cid, 'Backtest ready, now you can download the excel file !!', parse_mode='Markdown')
+               file = open(str(gpair) + '_' + str(gframe) + '_' + str(cid) +'-strategy.xlsx','rb')
+               print(file)
+               bot.send_document(cid,file)
+        else:    
+            bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         
 
+##############CopyBacktest #################################################################
+def CopyBacktestToReal(m):
+    #get env
+    getEnv(m)
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext, genv, gframe
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)
+    bot.send_message(cid, 'Add your pair in Upper Case, example ETHUBUSD', parse_mode='Markdown', reply_markup=markup)
+    gnext = copytimeframe
+    bot.register_next_step_handler_by_chat_id(cid, timeframe)
+
+
+def copytimeframe(m):
+    #get env
+    cid = m.chat.id
+    global gnext, genv, gframe
+    gframe = m.text
+    markup = types.ReplyKeyboardMarkup()
+    itema = types.KeyboardButton('Yes, proceed')
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itema)
+    markup.row(itemd)
+    bot.send_message(cid, 'This operation will stop your bot, copy and replace all the params related, indicators, trend, params for your Pair and timeframe selected, do you want to proceed?', parse_mode='Markdown', reply_markup=markup)
+    bot.register_next_step_handler_by_chat_id(cid, executecopy)    
+
+
+def executecopy(m):
+    #get env
+    getEnv(m)
+    cid = m.chat.id
+    valor = m.text
+    global gdata, genv, gpair, gframe
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    gdata = (cid,gpair,gframe)
+    user = getUser(cid, genv)
+    if valor == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/list')
+       markup.row(item)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else:   
+        if  int(user['token'].values) == int(cid):
+            copyTrade(gdata, genv)
+            bot.send_message(cid, "Copy done...", parse_mode='Markdown', reply_markup=markup)
+        else:    
+            bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)  
 ###############Set params #########################################
 ###################################################################
 
@@ -1135,7 +1217,7 @@ def insert_setenv(m):
     else:
        if  int(user['token'].values) == cid:
             env(gdata)
-            bot.send_message(cid, 'Env added...done !!', parse_mode='Markdown', reply_markup=markup)
+            bot.send_message(cid, f"Enviroment set to {valor}...done !!", parse_mode='Markdown', reply_markup=markup)
        else:    
             bot.send_message(cid, "User not autorized", parse_mode='Markdown')  
 

@@ -25,6 +25,8 @@ binance_client = Client(api_key=binance_api_key.to_string(index=False), api_secr
 db_con = operations.db_con
 #Dataframe
 data_df = ""
+#Message
+message = ""
 
 ### FUNCTIONS
 def minutes_of_new_data(symbol, kline_size, data, source):
@@ -39,7 +41,7 @@ def minutes_of_new_data(symbol, kline_size, data, source):
                       
 
 def get_all_binance(symbol, kline_size, token, save=False):
-    global data_df
+    global data_df, message
     tablename = symbol + "_" + kline_size + '_' + str(token)
     check_table_exists = f"SELECT count(*) FROM information_schema.tables WHERE table_name = '{tablename}';"
 
@@ -52,12 +54,14 @@ def get_all_binance(symbol, kline_size, token, save=False):
         symbol, kline_size, data_df, source="binance")
     delta_min = (newest_point - oldest_point).total_seconds()/60
     available_data = math.ceil(delta_min/binsizes[kline_size])
-    # if oldest_point == datetime.strptime("01 Jan 2021", '%d %b %Y'):
-    #     print('Downloading all available %s data for %s. Be patient..!' %
-    #           (kline_size, symbol))
-    # else:
-    #     print('Downloading %d minutes of new data available for %s, i.e. %d instances of %s data.' % (
-    #         delta_min, symbol, available_data, kline_size))
+    if oldest_point == datetime.strptime("01 Jan 2021", '%d %b %Y'):
+        # print('Downloading all available %s data for %s. Be patient..!' %
+        #       (kline_size, symbol))
+        message =  'Downloading all available %s data for %s. Be patient..!' %(kline_size, symbol)     
+    else:
+        # print('Downloading %d minutes of new data available for %s, i.e. %d instances of %s data.' % (
+        #     delta_min, symbol, available_data, kline_size))
+        message =  'Downloading %d minutes of new data available for %s, i.e. %d instances of %s data.' % (delta_min, symbol, available_data, kline_size)   
     klines = binance_client.get_historical_klines(symbol, kline_size, oldest_point.strftime(
         "%d %b %Y %H:%M:%S"), newest_point.strftime("%d %b %Y %H:%M:%S"))  
     data = pd.DataFrame(klines, columns=['timestamp', 'open', 'high', 'low', 'close',

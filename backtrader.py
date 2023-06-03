@@ -60,11 +60,13 @@ def check_params(env, token, pair, timeframe):
     else:
         return False  
 
+def getMessageGetHistorical():
+    return getHistorical.message        
+
 def backtest(values, env, token, timeframe, pair):
 
     #Fill historical allways before run the process
     getHistorical.get_all_binance(pair, timeframe, token, save=True)
-
     
     # Retrieving historical data from database
     def get_historical_data():

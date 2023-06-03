@@ -1,3 +1,3 @@
 #!/bin/sh
-/opt/domgarmining/venv/bin/python3 /opt/domgarmining/forever.py /opt/domgarmining/trader.py
+/opt/mockba/venv/bin/python3 /opt/mockba/forever.py /opt/mockba/trader.py
 exit 0
