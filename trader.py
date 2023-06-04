@@ -320,7 +320,8 @@ while True:
                     marginBuy = marginBuy / 100 + 1 # Earning from each buy
                     StopLoss = float(params['stoploss'][0] / 100) # %  
                     #
-                    invest = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free']) # Initial value
+                    availabeOf = float(params['percentage_of_available'][0] / 100)
+                    invest = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'] * availabeOf) # Initial value
                     fee = (invest / float(df[4][499])) * feeBuy
                     qty = round(((invest / float(df[4][499])) - fee) ,1)
                     nextOps = round(float(df[4][499]) * marginSell,2)
@@ -356,7 +357,8 @@ while True:
                     StopLoss = float(params['stoploss'][0] / 100) # %   
                     #
                     #
-                    balance = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'])
+                    availabeOf = float(params['percentage_of_available'][0] / 100)
+                    balance = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'] * availabeOf)
                     fee = (balance * feeSell)
                     qty = round(((balance * float(df[4][499])) - fee) /  float(df[4][499]) - 0.0001 ,1)# Sell amount
                     nextOps = round(qty / ((qty / float(df[4][499]) * marginBuy)),2) # Next buy
@@ -390,7 +392,8 @@ while True:
                     StopLoss = float(params['stoploss'][0] / 100) # %   
                     #
                     #
-                    balance = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'])
+                    availabeOf = float(params['percentage_of_available'][0] / 100)
+                    balance = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'] * availabeOf)
                     fee = (balance * feeSell)
                     qty = round(((balance * float(df[4][499])) - fee) /  float(df[4][499]) - 0.0001 ,1)# Sell amount
                     nextOps = round(qty / ((qty / float(df[4][499]) * marginBuy)),2) # Next buy
@@ -424,9 +427,10 @@ while True:
                     StopLoss = float(params['stoploss'][0] / 100) # %   
                     #
                     #
-                    balance_usdt = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'])
-                    fee = (balance_usdt / float(df[4][499])) * feeBuy
-                    qty = round(((balance_usdt / float(df[4][499])) - fee) - 0.0001,1) # Buy amount
+                    availabeOf = float(params['percentage_of_available'][0] / 100)
+                    balance_of = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'] * availabeOf)
+                    fee = (balance_of / float(df[4][499])) * feeBuy
+                    qty = round(((balance_of / float(df[4][499])) - fee) - 0.0001,1) # Buy amount
                     nextOps = round(float(df[4][499]) * marginSell,2)
                     sellFlag = 1
                     data = (float(qty),float(nextOps), 'sell',sellFlag,1,'buy',now.strftime("%d/%m/%Y %H:%M:%S"),trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe),row.token, row.pair, row.timeframe)
@@ -456,9 +460,10 @@ while True:
                     StopLoss = float(params['stoploss'][0] / 100) # %   
                     #
                     #     
-                    balance_usdt = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'])
-                    fee = (balance_usdt / float(df[4][499])) * feeBuy
-                    qty = ((balance_usdt / float(df[4][499])) - fee) - 0.0001 # Buy amount
+                    availabeOf = float(params['percentage_of_available'][0] / 100)
+                    balance_of = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'] * availabeOf)
+                    fee = (balance_of / float(df[4][499])) * feeBuy
+                    qty = ((balance_of / float(df[4][499])) - fee) - 0.0001 # Buy amount
                     nextOps = float(df[4][499]) * marginSell
                     sellFlag = 1
                     data = (float(qty),float(nextOps),'sell',sellFlag,1,'stopLoss',now.strftime("%d/%m/%Y %H:%M:%S"),trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe),row.token, row.pair, row.timeframe) 

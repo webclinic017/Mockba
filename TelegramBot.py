@@ -44,6 +44,7 @@ gp2 = "0"
 gp3 = "0"
 gp4 = "0"
 gp5 = "0"
+gavailable = "100"
 genv = ""
 
 def getEnv(m):
@@ -128,7 +129,7 @@ def paramsAction(data, env):
         conn = psycopg2.connect(host=host, database=database, user=user, password=password)
         cursor = conn.cursor()
         # insert data into the database
-        sql = "insert into " + env + ".parameters (trend, margingsell, margingbuy, stoploss, token, pair, timeframe) values (%s,%s,%s,%s,%s,%s,%s)"
+        sql = "insert into " + env + ".parameters (trend, margingsell, margingbuy, stoploss, token, pair, timeframe, percentage_of_available) values (%s,%s,%s,%s,%s,%s,%s,%s)"
         cursor.execute(sql, data)
         gcount = cursor.rowcount
         # commit the transaction
@@ -940,25 +941,58 @@ def get_p4(m):
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else: 
        bot.send_message(cid, 'Put your params to '+ "*" + '**Stoploss**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 0.03', parse_mode='Markdown', reply_markup=markup)
-       bot.register_next_step_handler_by_chat_id(cid, paramsActions)                
+       bot.register_next_step_handler_by_chat_id(cid, get_p5) 
+
+def get_p5(m):
+    cid = m.chat.id
+    global gp5
+    markup = types.ReplyKeyboardMarkup()
+    item1 = types.KeyboardButton('25')
+    item2 = types.KeyboardButton('30')
+    item3 = types.KeyboardButton('33')
+    item4 = types.KeyboardButton('50')
+    item5 = types.KeyboardButton('75')
+    item6 = types.KeyboardButton('100')
+    gp5 = m.text
+    markup.row(item1)
+    markup.row(item2)
+    markup.row(item3)
+    markup.row(item4)
+    markup.row(item5)
+    markup.row(item6)
+    markup.row(itemc)
+    if gp5 == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/list')
+       markup.row(item)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else: 
+       bot.send_message(cid, 'Put your amount ypu want to trade of your available, no more than 100', parse_mode='Markdown', reply_markup=markup)
+       bot.register_next_step_handler_by_chat_id(cid, paramsActions)        
+                      
 
 def paramsActions(m):
     #get env
     getEnv(m)
     cid = m.chat.id
     valor = m.text
-    global gdata, gframe, gpair, gp5, genv
+    global gdata, gframe, gpair, gp5, genv, gavailable
     user = getUser(cid, genv)
-    gp5 = m.text
-    gdata = (gp1.lower(), gp2, gp3, gp4, gp5,cid,gpair,gframe)
+    gavailable = m.text
+    gdata = (gp1.lower(), gp2, gp3, gp4, gp5,cid,gpair,gframe,gavailable)
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
-    if gp5 == 'CANCEL':
+    if gavailable == 'CANCEL':
        markup = types.ReplyKeyboardMarkup()
        item = types.KeyboardButton('/list')
        markup.row(item)
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    if gavailable > 100:  
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/list')
+       markup.row(item)
+       bot.send_message(cid, 'The value can not be greater than 100', parse_mode='Markdown', reply_markup=markup) 
     else: 
        if  int(user['token'].values) == cid:
            paramsAction(gdata, genv)
