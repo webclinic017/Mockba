@@ -7,6 +7,7 @@ import numpy as np
 from math import floor
 import psycopg2
 from decimal import *
+import time
 #import trend as trend
 from indicators import trend
 from datetime import datetime
@@ -24,13 +25,6 @@ host = os.getenv("HOST")
 database = os.getenv("DATABASE")
 user = os.getenv("USR")
 password = os.getenv("PASSWD")
-
-df = operations.getApi(api_telegram)
-
-api_key = df['api_key']
-api_secret = df['api_secret']
-client = Client(api_key, api_secret)
-
 
 now = datetime.now()
 # print('Trading')
@@ -268,6 +262,11 @@ while True:
     params = getLoopParams()
     # Loop through the DataFrame rows using itertuples()
     for row in params.itertuples():
+        dfapi = operations.getApi(row.token)
+
+        api_key = dfapi['api_key']
+        api_secret = dfapi['api_secret']
+        client = Client(api_key, api_secret)
         # operation values
         operations = getNextOps(row.token, row.pair, row.timeframe)
 
@@ -304,7 +303,7 @@ while True:
             operations = getNextOps(row.token, row.pair, row.timeframe)
 
             if signal['status'][0] == 0:
-                print('Bot is down') 
+                print('Bot is down for this pair and timeframe') 
             elif operations['close_time'].values != df[0][499]:
                 # print('Calculando')
                 # Fisrt buy

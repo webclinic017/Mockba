@@ -14,6 +14,8 @@ from database import operations
 import psycopg2
 import webbrowser
 import backtrader
+#loading trader
+import trader
 
 # loading the .env file
 load_dotenv()
@@ -843,17 +845,13 @@ def startStopBot(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
-    gdata = (0, cid,gpair,gframe)
+    gdata = (0 if valor == 'Start' else '1', cid,gpair,gframe)
     user = getUser(cid, genv)
     if valor == 'CANCEL':
        markup = types.ReplyKeyboardMarkup()
        item = types.KeyboardButton('/list')
        markup.row(item)
-       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
-    elif  valor == 'Start':  
-       gdata = (0, cid,gpair,gframe)
-    elif  valor == 'Stop':  
-       gdata = (0, cid,gpair,gframe)   
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)  
     else:   
         if  int(user['token'].values) == int(cid):
             startStopBot(gdata)
