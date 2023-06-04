@@ -198,7 +198,27 @@ def env(data):
         # close the cursor and connection
         cursor.close()
         if conn is not None:
-           conn.close()                                 
+           conn.close() 
+
+# Def trendTime
+def stopstartbot(data):
+    try:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = "insert into main.t_bot_status set status = %s where token = %s and pair = %s and timeframe = %s"
+        cursor.execute(sql, data)
+        gcount = cursor.rowcount
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
+        gcount = 0
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close()                                             
 
 def getTicker(pair, interval):
    url = "https://api.binance.com/api/v3/klines?symbol="+pair+"E&interval="+interval
@@ -295,7 +315,8 @@ def callback_handler(call):
         'SetEnv': setenv,
         'tradingView': tradingView,
         'Backtest': backtest, 
-        'CopyBacktestToReal': CopyBacktestToReal
+        'CopyBacktestToReal': CopyBacktestToReal,
+        'SetBotStatus': SetBotStatus
     }
     # Get the function based on the call.data
     func = options.get(call.data)
@@ -590,29 +611,19 @@ def listBinanceTopVolume(m):
 def listBotStatus(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
-    global gnext
-    # Send the request to the API
-    bot.send_message(cid,"-----Fetching from Binance-----")
-    response = requests.get(operations.binance_url)
-    # Check if the request was successful
-    if response.status_code == 200:
-        # Retrieve the list of dictionaries from the response
-        data = response.json()
-
-        # Filter the list of dictionaries to exclude pairs starting with "BUSD" or "USDT" and ending with "BUSD"
-        filtered_data = [d for d in data if not (d['symbol'].startswith("BUSD") or d['symbol'].startswith("USDT")) and d['symbol'].endswith("BUSD") or d['symbol'].endswith("USDT")]
-
-        # Sort the filtered data by the volume in descending order
-        sorted_data = sorted(filtered_data, key=lambda x: x['quoteVolume'], reverse=True)
-
-        # Print the top 10 pairs with the highest volume
-        bot.send_message(cid,"Top volume of pairs ending in USDT or BUSD \n")
-        for i, d in enumerate(sorted_data[:10]):
-            bot.send_message(cid,f"{i + 1}. {d['symbol']}: {format(float(d['quoteVolume']),',.2f')}")
-        bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)    
-    else:
-        # If the request fails, print an error message
-        bot.send_message(cid,"Failed to retrieve data from Binance API")
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    valor = m.text
+    global gpair, gframe
+    user = getUser(cid, genv)
+    if  int(user['token'].values) == cid:
+        df = pd.read_sql("SELECT env FROM maiin.t_bot_status where token = '" + str(cid) + "'",con=db_con)
+        a = df.index.size
+        for i in df.index:
+            bot.send_message(cid, "*Bot status for: *" + str(df['token'][i]) + ' - ' + str(df['pair'][i]) + ' is (0 - up, 1 - down) ' + str(df['status'][i]) if a != 0 else 'No records found', parse_mode='Markdown')
+            bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)        
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')
 ##############ListBotStatus #################################################################
 
 ##############ListEnv #################################################################
@@ -789,6 +800,67 @@ def executecopy(m):
             bot.send_message(cid, "Copy done...", parse_mode='Markdown', reply_markup=markup)
         else:    
             bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)  
+
+##############setBotStatus #################################################################
+def SetBotStatus(m):
+    #get env
+    getEnv(m)
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext, genv, gframe
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)
+    bot.send_message(cid, 'Add your pair in Upper Case, example ETHUBUSD', parse_mode='Markdown', reply_markup=markup)
+    gnext = statusBot
+    bot.register_next_step_handler_by_chat_id(cid, timeframe)
+
+
+def statusBot(m):
+    #get env
+    cid = m.chat.id
+    global gnext, genv, gframe
+    gframe = m.text
+    markup = types.ReplyKeyboardMarkup()
+    itema = types.KeyboardButton('Start')
+    itemb = types.KeyboardButton('Stop')
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itema)
+    markup.row(itemb)
+    markup.row(itemd)
+    bot.send_message(cid, 'This operation will stop or start your bot for the pair and time frame selected', parse_mode='Markdown', reply_markup=markup)
+    bot.register_next_step_handler_by_chat_id(cid, startStopBot)    
+
+def startStopBot(m):
+    #get env
+    getEnv(m)
+    cid = m.chat.id
+    valor = m.text
+    global gdata, genv, gpair, gframe
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    gdata = (0, cid,gpair,gframe)
+    user = getUser(cid, genv)
+    if valor == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/list')
+       markup.row(item)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    elif  valor == 'Start':  
+       gdata = (0, cid,gpair,gframe)
+    elif  valor == 'Stop':  
+       gdata = (0, cid,gpair,gframe)   
+    else:   
+        if  int(user['token'].values) == int(cid):
+            startStopBot(gdata)
+            bot.send_message(cid, "Done...", parse_mode='Markdown', reply_markup=markup)
+        else:    
+            bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)                   
+            
 ###############Set params #########################################
 ###################################################################
 

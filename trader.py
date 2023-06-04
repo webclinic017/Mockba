@@ -18,8 +18,6 @@ PATH_OPERATIONS = os.getenv("PATH_OPERATIONS")
 sys.path.append(PATH_OPERATIONS)
 import operations
 db_con = operations.db_con
-#GetHistorical
-from database import getHistorical
 
 # access the environment variables
 host = os.getenv("HOST")
@@ -220,11 +218,21 @@ def update_trader_nextOps(data):
 
 # Def insert last data ops
 def act_trader_history(data):
-    sql = ''' INSERT INTO trader_history(qty,nextOpsVal,nextOps,sellFlag,ops,price,margin,close_time,trend)
-              VALUES(?,?,?,?,?,?,?,?,?) '''
-    cur = db_con.cursor()
-    cur.execute(sql, data)
-    db_con.commit()    
+    try:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = f"INSERT INTO main.trader_history(qty,nextopsval,nextOps,sellflag,counterbuy,ops,close_time,trend,token,pair,timeframe) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+        cursor.execute(sql, data)
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close() 
 
 # Def update close_time
 def update_trader_close_time(close_time, data):
@@ -256,6 +264,7 @@ def getTrendPeriods(token, pair, timeframe):
     
 
 while True:
+    print('Looping')
     params = getLoopParams()
     # Loop through the DataFrame rows using itertuples()
     for row in params.itertuples():
@@ -264,7 +273,7 @@ while True:
 
         if  check_params("main", row.token, row.pair, row.timeframe) == False:
 
-            #Get the hiatorical data
+            #Get the historical data
             df = getTicker(row.pair, row.timeframe)
 
             # get ma value
@@ -317,21 +326,20 @@ while True:
                     qty = round(((invest / float(df[4][499])) - fee) ,1)
                     nextOps = round(float(df[4][499]) * marginSell,2)
                     sellFlag = 1
-                    data = (qty,nextOps,'sell',sellFlag,1,'firstbuy',str(df[0][499]),'normaltrend',now.strftime("%d/%m/%Y %H:%M:%S"),round(float(df[4][499]),2))
-                    dataHist = (qty,nextOps,'sell',sellFlag,'buy',round(float(df[4][499]),2),float(marginBuy),str(df[0][499]),'normaltrend')
-                    print('Invest-------------------' + str(invest))
-                    print('First Buy-------------------' + str(qty))
+                    data = (qty,nextOps,'sell',sellFlag,1,'firstbuy',now.strftime("%d/%m/%Y %H:%M:%S"),'normaltrend',row.token, row.pair, row.timeframe)
+                    #print('Invest-------------------' + str(invest))
+                    #print('First Buy-------------------' + str(qty))
                     client.order_market_buy(symbol=str(row.pair), quantity=qty)           
                     act_trader_nextOps(data)
-                    act_trader_history(dataHist)
+                    act_trader_history(data)
                     #sm.sendMail('First Buy')
                     time.sleep(3)
                     #print('Done...')
                     fee = 0
                     qty = 0
                     nextOps = 0
-                # Sell    
-                elif float(df[4][499]) >= float(operations['nextOpsVal'][0]) and operations['sellFlag'][0] == 1:
+                # Now implement our margin and sell if signal for rsi and ma   
+                elif check_conditionsSell(float(df[4][499]), float(operations['nextopsval'][0]), operations['sellflag'][0], df['ma'][0], df['rsi'][0]):    
                     #print('Sell')
                     ticker = []
                     for i in reversed(range(trendParams['trend'][0])):
@@ -349,17 +357,16 @@ while True:
                     StopLoss = float(params['stoploss'][0] / 100) # %   
                     #
                     #
-                    balance_eth = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'])
-                    fee = (balance_eth * feeSell)
-                    qty = round(((balance_eth * float(df[4][499])) - fee) /  float(df[4][499]) - 0.0001 ,1)# Sell amount
+                    balance = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'])
+                    fee = (balance * feeSell)
+                    qty = round(((balance * float(df[4][499])) - fee) /  float(df[4][499]) - 0.0001 ,1)# Sell amount
                     nextOps = round(qty / ((qty / float(df[4][499]) * marginBuy)),2) # Next buy
                     # print(nextOps)
                     sellFlag = 0
-                    data = (float(qty),float(nextOps),'buy',sellFlag,1,'sell',str(df[0][499]),trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe),now.strftime("%d/%m/%Y %H:%M:%S"),round(float(df[4][499]),2))
-                    dataHist = (float(qty),float(nextOps),'buy',sellFlag,'sell',round(float(df[4][499]),2),float(marginSell),str(df[0][499]),trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe))
+                    data = (float(qty),float(nextOps),'buy',sellFlag,1,'sell', now.strftime("%d/%m/%Y %H:%M:%S"), trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe), row.token, row.pair, row.timeframe)
                     client.order_market_sell(symbol=str(row.pair), quantity=qty)
                     act_trader_nextOps(data)
-                    act_trader_history(dataHist)
+                    act_trader_history(data)
                     time.sleep(3)
                     #print('Done...')
                     fee = 0
@@ -384,24 +391,23 @@ while True:
                     StopLoss = float(params['stoploss'][0] / 100) # %   
                     #
                     #
-                    balance_eth = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'])
-                    fee = (balance_eth * feeSell)
-                    qty = round(((balance_eth * float(df[4][499])) - fee) /  float(df[4][499]) - 0.0001 ,1)# Sell amount
+                    balance = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'])
+                    fee = (balance * feeSell)
+                    qty = round(((balance * float(df[4][499])) - fee) /  float(df[4][499]) - 0.0001 ,1)# Sell amount
                     nextOps = round(qty / ((qty / float(df[4][499]) * marginBuy)),2) # Next buy
                     # print(round(qty,4))
                     sellFlag = 0
-                    data = (float(qty),float(nextOps),'buy',sellFlag,1,'forceSell',str(df[0][499]),trendResul(trend.trend(ticker)),now.strftime("%d/%m/%Y %H:%M:%S"),round(float(df[4][499]),2))
-                    dataHist = (float(qty),float(nextOps),'buy',sellFlag,'forceSell',round(float(df[4][499]),2),float(marginSell),str(df[0][499]),trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe))
+                    data = (float(qty),float(nextOps),'buy',sellFlag,1,'forceSell',now.strftime("%d/%m/%Y %H:%M:%S"),trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe),row.token, row.pair, row.timeframe)
                     client.order_market_sell(symbol=str(row.pair), quantity=qty)
                     act_trader_nextOps(data)
-                    act_trader_history(dataHist)
+                    act_trader_history(data)
                     time.sleep(3)
                     #print('Done...')
                     fee = 0
                     qty = 0
                     nextOps = 0
-                # Buy     
-                elif float(df[4][499]) <= float(operations['nextOpsVal'][0]) and operations['sellFlag'][0] == 0:
+                # Now find the next value for sell or apply stop loss
+                elif check_conditionsBuy(float(df[4][499]), float(operations['nextopsval'][0]), operations['sellflag'][0], df['ma'][0], df['rsi'][0]):    
                     #print('Buy')
                     ticker = []
                     for i in reversed(range(trendParams['trend'][0])):
@@ -424,11 +430,10 @@ while True:
                     qty = round(((balance_usdt / float(df[4][499])) - fee) - 0.0001,1) # Buy amount
                     nextOps = round(float(df[4][499]) * marginSell,2)
                     sellFlag = 1
-                    data = (float(qty),float(nextOps), 'sell',sellFlag,1,'buy',str(df[0][499]),trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe),now.strftime("%d/%m/%Y %H:%M:%S"),round(float(df[4][499]),2))
-                    dataHist = (float(qty),float(nextOps),'sell',sellFlag,'buy',round(float(df[4][499]),2),float(marginBuy),str(df[0][499]),trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe))
+                    data = (float(qty),float(nextOps), 'sell',sellFlag,1,'buy',now.strftime("%d/%m/%Y %H:%M:%S"),trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe),row.token, row.pair, row.timeframe)
                     client.order_market_buy(symbol=str(row.pair), quantity=round(qty,4))
                     act_trader_nextOps(data)
-                    act_trader_history(dataHist)
+                    act_trader_history(data)
                     time.sleep(3)
                     #print('Done...')
                     fee = 0
@@ -457,11 +462,10 @@ while True:
                     qty = ((balance_usdt / float(df[4][499])) - fee) - 0.0001 # Buy amount
                     nextOps = float(df[4][499]) * marginSell
                     sellFlag = 1
-                    data = (float(qty),float(nextOps),'sell',sellFlag,1,'stopLoss',str(df[0][499]),trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe),now.strftime("%d/%m/%Y %H:%M:%S"),round(float(df[4][499]),2)) 
-                    dataHist = (float(qty),float(nextOps),'sell',sellFlag,'stopLoss',round(float(df[4][499]),2),float(marginBuy),str(df[0][499]),trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe)) 
+                    data = (float(qty),float(nextOps),'sell',sellFlag,1,'stopLoss',now.strftime("%d/%m/%Y %H:%M:%S"),trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe),row.token, row.pair, row.timeframe) 
                     client.order_market_buy(symbol=str(row.pair), quantity=round(qty,4))
                     act_trader_nextOps(data)
-                    act_trader_history(dataHist)
+                    act_trader_history(data)
                     time.sleep(3)
                     #print('Done...')   
                     fee = 0
@@ -469,7 +473,8 @@ while True:
                     nextOps = 0
             else:
                 #print('Wait candle close 1d')
-                update_trader_close_time(df[0][499])
+                data = (row.pair, row.timeframe) 
+                update_trader_close_time(df[0][499], data)
                 #Change strategy if the trend changes before next ops is true
                 ticker = []
                 operations = getNextOps()
@@ -506,7 +511,7 @@ while True:
                     vnextOps = round(vqty / ((vqty / vticker * marginBuy)),2) # Next buy 
                 #print(trendResul(trend.trend(ticker)) )       
                 if vtrend != trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe):
-                   data = (float(vnextOps),trendResul(trend.trend(ticker), row.token, row.pair, row.timeframe),now.strftime("%d/%m/%Y %H:%M:%S"))
+                   data = (float(vnextOps),trendResul(trend.trend(ticker)),now.strftime("%d/%m/%Y %H:%M:%S"), row.token, row.pair)
                 #print('Updating')
                 update_trader_nextOps(data)        
     time.sleep(20)

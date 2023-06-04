@@ -17,8 +17,6 @@ PATH_OPERATIONS = os.getenv("PATH_OPERATIONS")
 sys.path.append(PATH_OPERATIONS)
 import operations
 db_con = operations.db_con
-#GetHistorical
-from database import getHistorical
 
 # access the environment variables
 host = os.getenv("HOST")
@@ -59,14 +57,9 @@ def check_params(env, token, pair, timeframe):
         return False      
     else:
         return False  
-
-def getMessageGetHistorical():
-    return getHistorical.message        
+  
 
 def backtest(values, env, token, timeframe, pair):
-
-    #Fill historical allways before run the process
-    getHistorical.get_all_binance(pair, timeframe, token, save=True)
     
     # Retrieving historical data from database
     def get_historical_data():
