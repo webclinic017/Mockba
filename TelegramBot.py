@@ -262,7 +262,9 @@ def clear_message_text(message):
 
 @bot.message_handler(commands=['list'])
 def command_list(m):
+    getEnv(m)
     cid = m.chat.id
+    global genv
     help_text = "Available options."
     # Define the buttons
     button1 = InlineKeyboardButton("Set Enviroment (Backtest or Main)", callback_data="SetEnv")
@@ -276,7 +278,11 @@ def command_list(m):
     button9 = InlineKeyboardButton("Start", callback_data="Start")
 
     # Create a nested list of buttons
-    buttons = [[button1], [button2], [button3, button4, button5], [button6, button7, button8], [button9]]
+    if genv == 'backtest':
+     buttons = [[button1], [button2], [button3, button4, button5], [button6, button7, button8], [button9]]
+    else:
+     buttons = [[button1], [button2], [button3, button5], [button6, button8], [button9]]
+      
 
     # Order the buttons in the second row
     buttons[1].sort(key=lambda btn: btn.text)
