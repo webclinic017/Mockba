@@ -15,7 +15,7 @@ import psycopg2
 import webbrowser
 import backtrader
 #loading trader
-import trader
+#import trader
 
 # loading the .env file
 load_dotenv()
@@ -130,6 +130,7 @@ def paramsAction(data, env):
         cursor = conn.cursor()
         # insert data into the database
         sql = "insert into " + env + ".parameters (trend, margingsell, margingbuy, stoploss, token, pair, timeframe, percentage_of_available) values (%s,%s,%s,%s,%s,%s,%s,%s)"
+        print(data, env)
         cursor.execute(sql, data)
         gcount = cursor.rowcount
         # commit the transaction
@@ -336,12 +337,11 @@ def paramsmenu(m):
     button2 = InlineKeyboardButton("Set Trendtime", callback_data="SetTrendtime")
     button3 = InlineKeyboardButton("Set RSIValue", callback_data="SetRSIValue")
     button4 = InlineKeyboardButton("Set MAValue", callback_data="SetMAValue")
-    button5 = InlineKeyboardButton("Set SignalsValue", callback_data="SetSignalsValue")
-    button6 = InlineKeyboardButton("Copy Backtest To Main", callback_data="CopyBacktestToReal")
-    button7 = InlineKeyboardButton("<< Back to List", callback_data="List")
+    button5 = InlineKeyboardButton("Copy Backtest To Main", callback_data="CopyBacktestToReal")
+    button6 = InlineKeyboardButton("<< Back to List", callback_data="List")
 
     # Create a nested list of buttons
-    buttons = [[button1], [button2], [button3], [button4], [button5], [button6], [button7]]
+    buttons = [[button1], [button2], [button3], [button4], [button5], [button6]]
 
     # Order the buttons in the second row
     buttons[1].sort(key=lambda btn: btn.text)
@@ -382,11 +382,11 @@ def listMenu(m):
     button7 = InlineKeyboardButton("List Binance Top Volume", callback_data="ListBinanceTopVolume")
     button8 = InlineKeyboardButton("List Bot Status (Token-Timeframe)", callback_data="ListBotStatus")
     button9 = InlineKeyboardButton("List Enviroment (Backtest, Main)", callback_data="ListEnv")
-    button10 = InlineKeyboardButton("List Chart TradingView", callback_data="tradingView")
+    # button10 = InlineKeyboardButton("List Chart TradingView", callback_data="tradingView")
     button11 = InlineKeyboardButton("<< Back to list", callback_data="List")
 
     # Create a nested list of buttons
-    buttons = [[button1], [button2], [button3], [button4], [button5], [button6], [button7], [button8], [button9], [button10]]
+    buttons = [[button1], [button2], [button3], [button4], [button5], [button6], [button7], [button8], [button9]]
 
     # Order the buttons in the second row
     buttons[1].sort(key=lambda btn: btn.text)
@@ -462,8 +462,8 @@ def params(m):
         a = df.index.size
         bot.send_message(cid, "You selected " + gpair + " " + valor + " timeframe") 
         for i in df.index:
-            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nmargingsell: *" + str(df['margingsell'][i]) + "\n*margingbuy: *" + str(df['margingbuy'][i]) + "\n*StopLoss: *" + str(df['stoploss'][i]) if a != 0 else 'No records found' , parse_mode='Markdown')
-            bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)    
+            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nmargingsell: *" + str(df['margingsell'][i]) + "\n*margingbuy: *" + str(df['margingbuy'][i]) + "\n*StopLoss: *" + str(df['stoploss'][i]) +  "\n*Available: *" + str(df['percentage_of_available'][i]) if a != 0 else 'No records found' , parse_mode='Markdown')
+        bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)    
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')    
 
@@ -541,7 +541,7 @@ def listtrendparams(m):
         a = df.index.size
         bot.send_message(cid, "*You selected: *" + gpair + " for a timeframe of: " + gframe, parse_mode='Markdown')
         for i in df.index:
-            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nDowntrend: *" + str(df['downtrend'][i]) + "\n*Uptrend: *" + str(df['uptrend'][i]) if a != 0 else 'No records found', parse_mode='Markdown')
+            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nDowntrend: *" + str(df['downtrend'][i]) + "\n*Uptrend: *" + str(df['uptrend'][i])  if a != 0 else 'No records found', parse_mode='Markdown')
             bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)        
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')    
@@ -736,11 +736,11 @@ def backtestActions(m):
     else:   
         if  int(user['token'].values) == int(cid):
             start = datetime.now()
+            bot.send_message(cid, 'Backtesting in progress, this take time...')
             if backtrader.check_params(genv, cid, gpair, gframe):
                bot.send_message(cid,'No data for this selection, check you have parameter, ma, rsi and historical data for ' + str(gpair) + ' of ' + str(gframe))
             else:  
                backtrader.backtest(valor, genv, cid, gframe, gpair) 
-               bot.send_message(cid, backtrader.getMessageGetHistorical()) 
                bot.send_message(cid, 'Execution time  ' + str(datetime.now() - start))
                bot.send_message(cid, 'Backtest ready, now you can download the excel file !!', parse_mode='Markdown')
                file = open(str(gpair) + '_' + str(gframe) + '_' + str(cid) +'-strategy.xlsx','rb')
@@ -908,7 +908,7 @@ def get_p1(m):
        markup.row(item)
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else: 
-       bot.send_message(cid, 'Put your params to ' + "*" + '**margingsell**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 0.03', parse_mode='Markdown', reply_markup=markup)
+       bot.send_message(cid, 'Put your params to ' + "*" + '**margingsell**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 3', parse_mode='Markdown', reply_markup=markup)
        bot.register_next_step_handler_by_chat_id(cid, get_p2)
 
 def get_p2(m):
@@ -924,7 +924,7 @@ def get_p2(m):
        markup.row(item)
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else: 
-       bot.send_message(cid, 'Put your params to '+ "*" + '**Marginbuy**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 0.03', parse_mode='Markdown', reply_markup=markup)
+       bot.send_message(cid, 'Put your params to '+ "*" + '**Marginbuy**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 3', parse_mode='Markdown', reply_markup=markup)
        bot.register_next_step_handler_by_chat_id(cid, get_p4)
 
 def get_p4(m):
@@ -940,7 +940,7 @@ def get_p4(m):
        markup.row(item)
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else: 
-       bot.send_message(cid, 'Put your params to '+ "*" + '**Stoploss**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 0.03', parse_mode='Markdown', reply_markup=markup)
+       bot.send_message(cid, 'Put your params to '+ "*" + '**Stoploss**' + "*" + " \n\n" + 'Represented by a number, for exmaple 3% would be 3', parse_mode='Markdown', reply_markup=markup)
        bot.register_next_step_handler_by_chat_id(cid, get_p5) 
 
 def get_p5(m):
@@ -960,14 +960,14 @@ def get_p5(m):
     markup.row(item4)
     markup.row(item5)
     markup.row(item6)
-    markup.row(itemc)
+    # markup.row(itemc)
     if gp5 == 'CANCEL':
        markup = types.ReplyKeyboardMarkup()
        item = types.KeyboardButton('/list')
        markup.row(item)
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else: 
-       bot.send_message(cid, 'Put your amount ypu want to trade of your available, no more than 100', parse_mode='Markdown', reply_markup=markup)
+       bot.send_message(cid, 'Put your amount you want to trade of your available, no more than 100', parse_mode='Markdown', reply_markup=markup)
        bot.register_next_step_handler_by_chat_id(cid, paramsActions)        
                       
 
@@ -979,7 +979,7 @@ def paramsActions(m):
     global gdata, gframe, gpair, gp5, genv, gavailable
     user = getUser(cid, genv)
     gavailable = m.text
-    gdata = (gp1.lower(), gp2, gp3, gp4, gp5,cid,gpair,gframe,gavailable)
+    gdata = (gp1.lower(), gp2, gp4, gp5,cid,gpair,gframe,gavailable)
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
@@ -988,7 +988,7 @@ def paramsActions(m):
        item = types.KeyboardButton('/list')
        markup.row(item)
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
-    if gavailable > 100:  
+    if int(gavailable) > 100:  
        markup = types.ReplyKeyboardMarkup()
        item = types.KeyboardButton('/list')
        markup.row(item)
@@ -1169,7 +1169,7 @@ def trendtime(m):
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else:
        gnext = set_params
-       bot.send_message(cid, 'Put your time and integer time (2,3,4,5,6,7,8,9,10,etc), normaltrend, downtrend and uptrend | separated, example 6@-4@6 , it will update trendtime function', parse_mode='Markdown', reply_markup=markup)                        
+       bot.send_message(cid, 'Put your time and integer time (2,3,4,5,6,7,8,9,10,etc), normaltrend, downtrend and uptrend | separated, example 6|-4|6 , it will update trendtime function', parse_mode='Markdown', reply_markup=markup)                        
        bot.register_next_step_handler_by_chat_id(cid, trendtimeActions)
 
 def trendtimeActions(m):

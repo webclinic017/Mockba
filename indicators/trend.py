@@ -9,17 +9,20 @@ def trendline(data, order=1):
     coeffs = np.polyfit(data.index.values, list(data), order)
     slope = coeffs[-2]
     return float(slope)
+    
 
 # Return slope
 def trend(data):
+    #print(data)
     # check if values are exactly same
-    if (len(set(data))) <= 1:
+    # Assuming you have the 'data' variable with the necessary data
+    df = pd.DataFrame({'ticker': data})  # Create the DataFrame with the 'ticker' column
+
+    if len(df) <= 1:
         slope = 0
         print(0)
     else:
-        df = pd.DataFrame({'ticker': data})
-
-    slope = trendline(df['ticker'])
+        slope = trendline(df['ticker'])
     # print(slope)
     return slope
 
