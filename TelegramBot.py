@@ -13,7 +13,7 @@ from database import getHistorical
 from database import operations
 import psycopg2
 import webbrowser
-import backtrader
+import backtradernew as backtrader
 #loading trader
 #import trader
 

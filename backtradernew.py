@@ -95,7 +95,7 @@ def act_trader_nextOps(data):
 
 ################################################BACKTEST#######################################################
 
-def backtest(values, env, token, timeframe, pair):
+def backtest(values, env, token, timeframe, pair, dataframe):
 
     # Define variables operation
     marginSell = 0
@@ -116,22 +116,10 @@ def backtest(values, env, token, timeframe, pair):
     pd.set_option('display.float_format', '{:.8f}'.format)
 
     # # Function to get historical data
-    def get_historical_data(pair, timeframe, token, values):
-        field = '"timestamp"'
-        table = pair + "_" + timeframe + '_' + str(token)
-        f = "'" + values.split('|')[0] + "'"
-        t = "'" + values.split('|')[1] + "'"
-        query = f"SELECT {field}, close_time, close"
-        query += f' FROM public."{table}"'
-        query += f" WHERE timestamp >= {f}"
-        query += f" AND timestamp <= {t}"
-        query += f" ORDER BY 1"
-        #print(query)
-        df = pd.read_sql(query, con=db_con)
-        return df
+    
 
     # # Get historical data
-    df = get_historical_data(pair, timeframe, token, values)
+    df = dataframe #get_historical_data(pair, timeframe, token, values)
 
     # # Variables for backtest
     invest = float(values.split('|')[2])  # Initial value
