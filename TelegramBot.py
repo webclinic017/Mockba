@@ -130,7 +130,7 @@ def paramsAction(data, env):
         cursor = conn.cursor()
         # insert data into the database
         sql = "insert into " + env + ".parameters (trend, margingsell, margingbuy, stoploss, token, pair, timeframe, percentage_of_available) values (%s,%s,%s,%s,%s,%s,%s,%s)"
-        print(data, env)
+        # print(data, env)
         cursor.execute(sql, data)
         gcount = cursor.rowcount
         # commit the transaction
@@ -749,8 +749,7 @@ def backtestActions(m):
                backtrader.backtest(valor, genv, cid, gframe, gpair) 
                bot.send_message(cid, 'Execution time  ' + str(datetime.now() - start))
                bot.send_message(cid, 'Backtest ready, now you can download the excel file !!', parse_mode='Markdown')
-               file = open(str(gpair) + '_' + str(gframe) + '_' + str(cid) +'-strategy.xlsx','rb')
-               print(file)
+               file = open(str(gpair) + '_' + str(gframe) + '_' + str(cid) +'.xlsx','rb')
                bot.send_document(cid,file)
         else:    
             bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         

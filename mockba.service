@@ -1,0 +1,11 @@
+[Unit]
+Description=My Python Service
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/Mockba/
+ExecStart=/bin/bash -c "source /opt/Mockba/venv/bin/activate && python /opt/Mockba/forever.py /opt/Mockba/TelegramBot.py"
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

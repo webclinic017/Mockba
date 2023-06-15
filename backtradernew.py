@@ -76,7 +76,7 @@ def check_conditionsBuy(close, nextopsval, sellflag, ma, rsi):
     return (close <= nextopsval) & (sellflag == 0) & (close > ma) & (rsi > 59) 
 
 # Def insert last data ops
-def act_trader_nextOps(data):
+def act_trader_nextOps(data, env):
     try:
         conn = psycopg2.connect(host=host, database=database, user=user, password=password)
         cursor = conn.cursor()
@@ -95,7 +95,7 @@ def act_trader_nextOps(data):
 
 ################################################BACKTEST#######################################################
 
-def backtest(values, env, token, timeframe, pair, dataframe):
+def backtest(values, env, token, timeframe, pair):
 
     # Define variables operation
     marginSell = 0
@@ -108,7 +108,7 @@ def backtest(values, env, token, timeframe, pair, dataframe):
     ticker = []
 
     data = (0, 0, 'counterBuy', 0, 0, 0, 0, 0, token, pair, timeframe)
-    act_trader_nextOps(data)
+    act_trader_nextOps(data, env)
 
     print("Backtesting in progress, this take time...")
 
@@ -116,10 +116,23 @@ def backtest(values, env, token, timeframe, pair, dataframe):
     pd.set_option('display.float_format', '{:.8f}'.format)
 
     # # Function to get historical data
+    def get_historical_data(pair, timeframe, token, values):
+        field = '"timestamp"'
+        table = pair + "_" + timeframe + '_' + str(token)
+        f = "'" + values.split('|')[0] + "'"
+        t = "'" + values.split('|')[1] + "'"
+        query = f"SELECT {field}, close_time, close"
+        query += f' FROM public."{table}"'
+        query += f" WHERE timestamp >= {f}"
+        query += f" AND timestamp <= {t}"
+        query += f" ORDER BY 1"
+        #print(query)
+        df = pd.read_sql(query, con=db_con)
+        return df
     
 
     # # Get historical data
-    df = dataframe #get_historical_data(pair, timeframe, token, values)
+    df = get_historical_data(pair, timeframe, token, values)
 
     # # Variables for backtest
     invest = float(values.split('|')[2])  # Initial value
@@ -227,7 +240,7 @@ def backtest(values, env, token, timeframe, pair, dataframe):
             operations.loc[0, 'token'] = token
             operations.loc[0, 'pair'] = pair
             operations.loc[0, 'timeframe'] = timeframe
-            print('sell')
+            # print('sell')
         # # Force sell
         elif (df['close'][i] <= (float(operations['nextopsval'][0]) - ((float(operations['nextopsval'][0]) * StopLoss)))) & (operations['sellflag'][0] == 1):
             for x in reversed(range(trendParams['trend'][0])):
@@ -263,7 +276,7 @@ def backtest(values, env, token, timeframe, pair, dataframe):
             operations.loc[0, 'token'] = token
             operations.loc[0, 'pair'] = pair
             operations.loc[0, 'timeframe'] = timeframe
-            print('force sell')
+            # print('force sell')
         # # Now find the next value for sell or apply stop loss
         elif check_conditionsBuy(df['close'][i], float(operations['nextopsval'][0]), operations['sellflag'][0], df['ma'][i], df['rsi'][i]):  
             for x in reversed(range(trendParams['trend'][0])):
@@ -299,7 +312,7 @@ def backtest(values, env, token, timeframe, pair, dataframe):
             operations.loc[0, 'token'] = token
             operations.loc[0, 'pair'] = pair
             operations.loc[0, 'timeframe'] = timeframe 
-            print('buy')
+            # print('buy')
         # # Stop Loss after
         elif (df['close'][i] >= (float(operations['nextopsval'][0]) + ((float(operations['nextopsval'][0]) * StopLoss)))) & (operations['sellflag'][0] == 0): 
             for x in reversed(range(trendParams['trend'][0])):
@@ -335,11 +348,11 @@ def backtest(values, env, token, timeframe, pair, dataframe):
             operations.loc[0, 'token'] = token
             operations.loc[0, 'pair'] = pair
             operations.loc[0, 'timeframe'] = timeframe
-            print('Stop loss')
+            # print('Stop loss')
      
 
     # # Export DataFrame to Excel
-    df.to_excel(pair + "_" + timeframe + "_" + token + ".xlsx")
+    df.to_excel(str(pair) + "_" + str(timeframe) + "_" + str(token) + ".xlsx")
 
 # start = datetime.now()
 # pair = 'LUNCUSDT'
