@@ -228,6 +228,7 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'op_action'] = 'mySell'
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
+            df.loc[i, 'vlparam'] = trendquery
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -264,6 +265,7 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'op_action'] = 'stopLoss'
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
+            df.loc[i, 'vlparam'] = trendquery
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -300,6 +302,7 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'op_action'] = 'myBuy'
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
+            df.loc[i, 'vlparam'] = trendquery
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -336,6 +339,7 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'op_action'] = 'stopLoss'
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
+            df.loc[i, 'vlparam'] = trendquery
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
