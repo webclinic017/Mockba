@@ -171,6 +171,7 @@ def add_indicators(data, env):
         cursor = conn.cursor()
         # insert data into the database
         sql = "insert into " + env + ".indicators (indicator,value,token,timeframe,pair) values (%s,%s,%s,%s,%s)"
+        print(data)
         cursor.execute(sql, data)
         gcount = cursor.rowcount
         # commit the transaction
@@ -1174,7 +1175,7 @@ def trendtime(m):
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else:
        gnext = set_params
-       bot.send_message(cid, 'Put your time and integer time (2,3,4,5,6,7,8,9,10,etc), normaltrend, downtrend and uptrend | separated, example 6|-4|6 , it will update trendtime function', parse_mode='Markdown', reply_markup=markup)                        
+       bot.send_message(cid, 'Put threshold for trend the first value is the numbers of periods back, then uptrend and downtrnd. You can adjust the threshold values (-0.1 and 0.1) based on your specific criteria for defining an uptrend or downtrend normaltrend, example 5|-0.1|0.1 , it will update trendtime function', parse_mode='Markdown', reply_markup=markup)                        
        bot.register_next_step_handler_by_chat_id(cid, trendtimeActions)
 
 def trendtimeActions(m):
@@ -1184,7 +1185,7 @@ def trendtimeActions(m):
     valor = m.text
     global gdata, gframe, gpair, genv
     user = getUser(cid, genv)
-    gdata = (valor.split('|')[0],valor.split('|')[1],valor.split('|')[2],cid,gpair,gframe)
+    gdata = (float(valor.split('|')[0]),float(valor.split('|')[1]),float(valor.split('|')[2]),cid,gpair,gframe)
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
@@ -1391,7 +1392,7 @@ def trend(m):
         trendParams = pd.read_sql("SELECT * FROM " + genv + ".trend where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "'",con=db_con)
         a = trendParams.index.size
         bot.send_message(cid, "You selected " + gpair + " " + valor + " timeframe") 
-        bot.send_message(cid, 'Trend in real time ' + str(tr.trendBot(trendParams['trend'][0],gpair, valor)) if a != 0 else 'No records found', parse_mode='Markdown', reply_markup=markup)    
+        bot.send_message(cid, 'Trend in real time ' + str("{:.10f}".format(tr.trendBot(trendParams['trend'][0],gpair, valor))) if a != 0 else 'No records found', parse_mode='Markdown', reply_markup=markup)    
         bot.send_message(cid, "Done..")                     
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         
