@@ -60,9 +60,10 @@ def check_params(env, token, pair, timeframe):
 
 # # Function to check trend result
 def trendResult(trend, trendParams):
-    if trend < trendParams['downtrend'][0]:
+    # print("{:.10f}".format(trend), float(trendParams['downtrend'][0]), float(trendParams['uptrend'][0]), abs(float(trend)) < float(trendParams['downtrend'][0]), abs(float(trend)) > float(trendParams['uptrend'][0]))
+    if float(trend) < float(trendParams['downtrend'][0]):
         return 'downtrend'
-    elif trend > trendParams['uptrend'][0]:
+    elif float(trend) > float(trendParams['uptrend'][0]):
         return 'uptrend'
     else:
         return 'normaltrend'   
@@ -148,6 +149,7 @@ def backtest(values, env, token, timeframe, pair):
     df['MarginSell'] = 0 # The margin sell
     df['StopLoss'] = 0 # The Stop Loss
     df['vlparam'] = "" # The Param
+    df['trend'] = "" # The Trend
     df['ma'] = 0 # The MA
     df['rsi'] = 0 # The RSI
 
@@ -207,7 +209,7 @@ def backtest(values, env, token, timeframe, pair):
     for i in range(len(df['close'])):
         # Now implement our margin and sell if signal for rsi and ma
         if check_conditionsSell(df['close'][i], float(operations['nextopsval'][0]), operations['sellflag'][0], df['ma'][i], df['rsi'][i]):
-            for x in reversed(range(trendParams['trend'][0])):
+            for x in reversed(range(int(trendParams['trend'][0]))):
                 val = i - x
                 value = float(df['close'][val])
                 ticker.append(value)
@@ -229,6 +231,7 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
             df.loc[i, 'vlparam'] = trendquery
+            df.loc[i, 'trend'] = "{:.10f}".format(trend.trend(ticker))
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -244,7 +247,7 @@ def backtest(values, env, token, timeframe, pair):
             # print('sell')
         # # Force sell
         elif (df['close'][i] <= (float(operations['nextopsval'][0]) - ((float(operations['nextopsval'][0]) * StopLoss)))) & (operations['sellflag'][0] == 1):
-            for x in reversed(range(trendParams['trend'][0])):
+            for x in reversed(range(int(trendParams['trend'][0]))):
                 val = i - x
                 value = float(df['close'][val])
                 ticker.append(value)
@@ -266,6 +269,7 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
             df.loc[i, 'vlparam'] = trendquery
+            df.loc[i, 'trend'] = "{:.10f}".format(trend.trend(ticker))
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -281,7 +285,7 @@ def backtest(values, env, token, timeframe, pair):
             # print('force sell')
         # # Now find the next value for sell or apply stop loss
         elif check_conditionsBuy(df['close'][i], float(operations['nextopsval'][0]), operations['sellflag'][0], df['ma'][i], df['rsi'][i]):  
-            for x in reversed(range(trendParams['trend'][0])):
+            for x in reversed(range(int(trendParams['trend'][0]))):
                 val = i - x
                 value = float(df['close'][val])
                 ticker.append(value)
@@ -303,6 +307,7 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
             df.loc[i, 'vlparam'] = trendquery
+            df.loc[i, 'trend'] = "{:.10f}".format(trend.trend(ticker))
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -318,7 +323,7 @@ def backtest(values, env, token, timeframe, pair):
             # print('buy')
         # # Stop Loss after
         elif (df['close'][i] >= (float(operations['nextopsval'][0]) + ((float(operations['nextopsval'][0]) * StopLoss)))) & (operations['sellflag'][0] == 0): 
-            for x in reversed(range(trendParams['trend'][0])):
+            for x in reversed(range(int(trendParams['trend'][0]))):
                 val = i - x
                 value = float(df['close'][val])
                 ticker.append(value)
@@ -340,6 +345,7 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
             df.loc[i, 'vlparam'] = trendquery
+            df.loc[i, 'trend'] = "{:.10f}".format(trend.trend(ticker))
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -354,7 +360,8 @@ def backtest(values, env, token, timeframe, pair):
             operations.loc[0, 'timeframe'] = timeframe
             # print('Stop loss')
      
-
+    # Delete rows where column 'A' is equal to zero
+    df = df[df['qty'] != 0]
     # # Export DataFrame to Excel
     df.to_excel(str(pair) + "_" + str(timeframe) + "_" + str(token) + ".xlsx")
 
