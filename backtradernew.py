@@ -216,9 +216,9 @@ def backtest(values, env, token, timeframe, pair):
             trendquery = trendResult(trend.trend(ticker), trendParams)
             params_filtered = params[(params['trend'] == trendquery)]
             # Assign values depending trend
-            marginSell = float(params_filtered['margingsell'][0] / 100) + 1  # %
-            marginBuy = float(params_filtered['margingbuy'][0] / 100) + 1    # %
-            StopLoss = float(params_filtered['stoploss'][0] / 100) + 1  # %
+            marginSell = float(params_filtered['margingsell'] / 100) + 1  # %
+            marginBuy = float(params_filtered['margingbuy'] / 100) + 1    # %
+            StopLoss = float(params_filtered['stoploss'] / 100) + 1  # %
             fee = (((invest / df['close'][i]) * df['close'][i])) * feeSell
             qty = (operations['qty'][0] *  df['close'][i]) - fee  # Sell amount
             nextOps = qty / ((qty / df['close'][i]) * marginBuy)  # Next buy
@@ -292,9 +292,9 @@ def backtest(values, env, token, timeframe, pair):
             trendquery = trendResult(trend.trend(ticker), trendParams)
             params_filtered = params[(params['trend'] == trendquery)]
             # Assign values depending trend
-            marginSell = float(params_filtered['margingsell'][0] / 100) + 1  # %
-            marginBuy = float(params_filtered['margingbuy'][0] / 100) + 1    # %
-            StopLoss = float(params_filtered['stoploss'][0] / 100) + 1  # %
+            marginSell = float(params_filtered['margingsell'] / 100) + 1  # %
+            marginBuy = float(params_filtered['margingbuy'] / 100) + 1    # %
+            StopLoss = float(params_filtered['stoploss'] / 100) + 1  # %
             fee = (operations['qty'][0] / df['close'][i]) * feeBuy
             qty = (qty /  df['close'][i]) - fee  # Buy amount
             nextOps = df['close'][i] * marginSell
@@ -330,9 +330,9 @@ def backtest(values, env, token, timeframe, pair):
             trendquery = trendResult(trend.trend(ticker), trendParams)
             params_filtered = params[(params['trend'] == trendquery)]
             # Assign values depending trend
-            marginSell = float(params_filtered['margingsell'][0] / 100) + 1  # %
-            marginBuy = float(params_filtered['margingbuy'][0] / 100) + 1    # %
-            StopLoss = float(params_filtered['stoploss'][0] / 100) + 1  # %
+            marginSell = float(params_filtered['margingsell'] / 100) + 1  # %
+            marginBuy = float(params_filtered['margingbuy'] / 100) + 1    # %
+            StopLoss = float(params_filtered['stoploss'] / 100) + 1  # %
             fee = (operations['qty'][0] / df['close'][i]) * feeBuy
             qty = (qty /  df['close'][i]) - fee  # Buy amount
             nextOps = df['close'][i] * marginSell
@@ -366,7 +366,7 @@ def backtest(values, env, token, timeframe, pair):
     df.to_excel(str(pair) + "_" + str(timeframe) + "_" + str(token) + ".xlsx")
 
 # start = datetime.now()
-# pair = 'LUNCUSDT'
+# pair = 'FTMUSDT'
 # token = '556159355'
 # timeframe = '5m'
 # env = 'backtest'
@@ -374,5 +374,5 @@ def backtest(values, env, token, timeframe, pair):
 # if check_params(env, token, pair, timeframe):
 #     print('No data for this selection, check you have parameter, ma, rsi and historical data for ' + pair + ' of ' + timeframe)
 # else:   
-#     backtest('2023-01-1|2023-05-31|1000',env, token, timeframe, pair)
+#     backtest('2022-01-01|2023-06-30|1000',env, token, timeframe, pair)
 #     print('Tiempo de ejecución  ' + str(datetime.now() - start))    

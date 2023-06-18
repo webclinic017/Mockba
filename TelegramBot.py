@@ -15,7 +15,7 @@ import psycopg2
 import webbrowser
 import backtradernew as backtrader
 #loading trader
-#import trader
+import tradernew
 
 # loading the .env file
 load_dotenv()
