@@ -17,6 +17,7 @@ PATH_OPERATIONS = os.getenv("PATH_OPERATIONS")
 sys.path.append(PATH_OPERATIONS)
 import operations
 db_con = operations.db_con
+from indicators import trend as tr
 
 # access the environment variables
 host = os.getenv("HOST")
@@ -210,10 +211,10 @@ def backtest(values, env, token, timeframe, pair):
         # Now implement our margin and sell if signal for rsi and ma
         if check_conditionsSell(df['close'][i], float(operations['nextopsval'][0]), operations['sellflag'][0], df['ma'][i], df['rsi'][i]):
             for x in reversed(range(int(trendParams['trend'][0]))):
-                val = i - x
+                val = (int(trendParams['trend'][0])-1) - x
                 value = float(df['close'][val])
                 ticker.append(value)
-            trendquery = trendResult(trend.trend(ticker), trendParams)
+            trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]))
             params_filtered = params[(params['trend'] == trendquery)]
             # Assign values depending trend
             marginSell = float(params_filtered['margingsell'] / 100) + 1  # %
@@ -231,7 +232,6 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
             df.loc[i, 'vlparam'] = trendquery
-            df.loc[i, 'trend'] = "{:.10f}".format(trend.trend(ticker))
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -248,10 +248,10 @@ def backtest(values, env, token, timeframe, pair):
         # # Force sell
         elif (df['close'][i] <= (float(operations['nextopsval'][0]) - ((float(operations['nextopsval'][0]) * StopLoss)))) & (operations['sellflag'][0] == 1):
             for x in reversed(range(int(trendParams['trend'][0]))):
-                val = i - x
+                val = (int(trendParams['trend'][0])-1) - x
                 value = float(df['close'][val])
                 ticker.append(value)
-            trendquery = trendResult(trend.trend(ticker), trendParams)
+            trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]))
             params_filtered = params[(params['trend'] == trendquery)]
             # Assign values depending trend
             marginSell = float(params_filtered['margingsell'][0] / 100) + 1  # %
@@ -269,7 +269,6 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
             df.loc[i, 'vlparam'] = trendquery
-            df.loc[i, 'trend'] = "{:.10f}".format(trend.trend(ticker))
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -286,10 +285,10 @@ def backtest(values, env, token, timeframe, pair):
         # # Now find the next value for sell or apply stop loss
         elif check_conditionsBuy(df['close'][i], float(operations['nextopsval'][0]), operations['sellflag'][0], df['ma'][i], df['rsi'][i]):  
             for x in reversed(range(int(trendParams['trend'][0]))):
-                val = i - x
+                val = (int(trendParams['trend'][0])-1) - x
                 value = float(df['close'][val])
                 ticker.append(value)
-            trendquery = trendResult(trend.trend(ticker), trendParams)
+            trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]))
             params_filtered = params[(params['trend'] == trendquery)]
             # Assign values depending trend
             marginSell = float(params_filtered['margingsell'] / 100) + 1  # %
@@ -307,7 +306,6 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
             df.loc[i, 'vlparam'] = trendquery
-            df.loc[i, 'trend'] = "{:.10f}".format(trend.trend(ticker))
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -324,10 +322,10 @@ def backtest(values, env, token, timeframe, pair):
         # # Stop Loss after
         elif (df['close'][i] >= (float(operations['nextopsval'][0]) + ((float(operations['nextopsval'][0]) * StopLoss)))) & (operations['sellflag'][0] == 0): 
             for x in reversed(range(int(trendParams['trend'][0]))):
-                val = i - x
+                val = (int(trendParams['trend'][0])-1) - x
                 value = float(df['close'][val])
                 ticker.append(value)
-            trendquery = trendResult(trend.trend(ticker), trendParams)
+            trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]))
             params_filtered = params[(params['trend'] == trendquery)]
             # Assign values depending trend
             marginSell = float(params_filtered['margingsell'] / 100) + 1  # %
@@ -345,7 +343,6 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
             df.loc[i, 'vlparam'] = trendquery
-            df.loc[i, 'trend'] = "{:.10f}".format(trend.trend(ticker))
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -359,20 +356,51 @@ def backtest(values, env, token, timeframe, pair):
             operations.loc[0, 'pair'] = pair
             operations.loc[0, 'timeframe'] = timeframe
             # print('Stop loss')
+        # Updating the next param value depending on the trend condition market    
+        # else:
+        #     for x in reversed(range(int(trendParams['trend'][0]))):
+        #         val = (int(trendParams['trend'][0])-1) - x
+        #         value = float(df['close'][val])
+        #         ticker.append(value)
+        #     trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]))
+        #     params_filtered = params[(params['trend'] == trendquery)]
+
+        #     # Assign values depending trend
+        #     marginSell = float(params_filtered['margingsell'] / 100) + 1  # %
+        #     marginBuy = float(params_filtered['margingbuy'] / 100) + 1    # %
+        #     StopLoss = float(params_filtered['stoploss'] / 100) + 1  # %
+        #     fee = (operations['qty'][0] / df['close'][i]) * feeBuy
+        #     qty = (qty /  df['close'][i]) - fee  # Buy amount
+        #     nextOps = df['close'][i] * marginSell 
+
+        #     if  sellflag == 1:
+        #         nextOps = df['close'][i] * marginSell 
+        #     else:
+        #         nextOps = qty / ((qty / df['close'][i]) * marginBuy)  # Next buy
+
+        #     # Updating dataframe colums  
+        #     df.loc[i, 'MarginBuy'] = marginBuy
+        #     df.loc[i, 'MarginSell'] = marginSell
+        #     df.loc[i, 'StopLoss'] = StopLoss
+        #     df.loc[i, 'op_action'] = 'stopLoss'
+        #     df.loc[i, 'qty'] = qty
+        #     df.loc[i, 'nextOps'] = nextOps
+        #     df.loc[i, 'vlparam'] = trendquery
+
      
     # Delete rows where column 'A' is equal to zero
     df = df[df['qty'] != 0]
     # # Export DataFrame to Excel
     df.to_excel(str(pair) + "_" + str(timeframe) + "_" + str(token) + ".xlsx")
 
-# start = datetime.now()
-# pair = 'FTMUSDT'
-# token = '556159355'
-# timeframe = '5m'
-# env = 'backtest'
+start = datetime.now()
+pair = 'FTMUSDT'
+token = '556159355'
+timeframe = '5m'
+env = 'backtest'
     
-# if check_params(env, token, pair, timeframe):
-#     print('No data for this selection, check you have parameter, ma, rsi and historical data for ' + pair + ' of ' + timeframe)
-# else:   
-#     backtest('2022-01-01|2023-06-30|1000',env, token, timeframe, pair)
-#     print('Tiempo de ejecución  ' + str(datetime.now() - start))    
+if check_params(env, token, pair, timeframe):
+    print('No data for this selection, check you have parameter, ma, rsi and historical data for ' + pair + ' of ' + timeframe)
+else:   
+    backtest('2023-01-01|2023-06-30|1000',env, token, timeframe, pair)
+    print('Tiempo de ejecución  ' + str(datetime.now() - start))    

@@ -18,6 +18,7 @@ PATH_OPERATIONS = os.getenv("PATH_OPERATIONS")
 sys.path.append(PATH_OPERATIONS)
 import operations
 db_con = operations.db_con
+from indicators import trend as tr
 
 # access the environment variables
 host = os.getenv("HOST")
@@ -94,25 +95,6 @@ def act_trader_nextOps(data):
         cursor.close()
         if conn is not None:
            conn.close()           
-
-# Def insert last data ops
-def update_trader_nextOps(data):
-    try:
-        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
-        cursor = conn.cursor()
-        # insert data into the database
-        sql = f"update main.trader set nextOpsVal = %s, trend = %s, updatedAt = %s where pair = %s and timeframe = %s"
-        cursor.execute(sql, data)
-        # commit the transaction
-        conn.commit()
-    except psycopg2.Error as e:
-        print("Error:", e)
-    finally:
-        # close the cursor and connection
-        cursor.close()
-        if conn is not None:
-           conn.close()
-
 # Def insert last data ops
 def act_trader_history(data):
     try:
@@ -131,27 +113,9 @@ def act_trader_history(data):
         if conn is not None:
            conn.close() 
 
-# Def update close_time
-def update_trader_close_time(close_time, data):
-    try:
-        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
-        cursor = conn.cursor()
-        # insert data into the database
-        sql = f"update main.trader set close_time = '" + str(close_time) + "' where pair = %s and timeframe = %s"
-        cursor.execute(sql, data)
-        # commit the transaction
-        conn.commit()
-    except psycopg2.Error as e:
-        print("Error:", e)
-    finally:
-        # close the cursor and connection
-        cursor.close()
-        if conn is not None:
-           conn.close()   
-
 # Def get trend periods
 def getTrendPeriods(token, pair, timeframe):
-    df = pd.read_sql(f"SELECT * FROM main.trend where token = {token} and pair = {pair} and timeframe = {timeframe}",con=db_con)
+    df = pd.read_sql(f"SELECT * FROM main.trend where token = '{token}' and pair = '{pair}' and timeframe = '{timeframe}'",con=db_con)
     return df  
 
 # # Function to get historical data
@@ -253,7 +217,7 @@ while True:
                             val = 499 - i
                             value = float(df[4][val])
                             ticker.append(value)
-                        trendquery = trendResult(trend.trend(ticker), trendParams)
+                        trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]))
                         params_filtered = params[(params['trend'] == trendquery)]    
                         marginSell = float(params_filtered['margingsell'] / 100) #%
                         marginSell = marginSell / 100 + 1 # Earning from each sell
@@ -286,7 +250,7 @@ while True:
                             val = 499 - i
                             value = float(df[4][val])
                             ticker.append(value)
-                        trendquery = trendResult(trend.trend(ticker), trendParams)
+                        trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]))
                         params_filtered = params[(params['trend'] == trendquery)]    
                         marginSell = float(params_filtered['margingsell'] / 100) #%
                         marginSell = marginSell / 100 + 1 # Earning from each sell
@@ -319,7 +283,7 @@ while True:
                             val = 499 - i
                             value = float(df[4][val])
                             ticker.append(value)
-                        trendquery = trendResult(trend.trend(ticker), trendParams)
+                        trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]))
                         params_filtered = params[(params['trend'] == trendquery)]    
                         marginSell = float(params_filtered['margingsell'] / 100) #%
                         marginSell = marginSell / 100 + 1 # Earning from each sell
@@ -351,7 +315,7 @@ while True:
                             val = 499 - i
                             value = float(df[4][val])
                             ticker.append(value)
-                        trendquery = trendResult(trend.trend(ticker), trendParams)
+                        trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]))
                         params_filtered = params[(params['trend'] == trendquery)]    
                         marginSell = float(params_filtered['margingsell'] / 100) #%
                         marginSell = marginSell / 100 + 1 # Earning from each sell

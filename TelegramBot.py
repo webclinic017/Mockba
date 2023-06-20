@@ -15,7 +15,7 @@ import psycopg2
 import webbrowser
 import backtradernew as backtrader
 #loading trader
-import tradernew
+#import tradernew
 
 # loading the .env file
 load_dotenv()
@@ -150,7 +150,7 @@ def trendTime(data, env):
         conn = psycopg2.connect(host=host, database=database, user=user, password=password)
         cursor = conn.cursor()
         # insert data into the database
-        sql = "insert into " + env + ".trend (trend,downtrend,uptrend,token,pair,timeframe) values (%s,%s,%s,%s,%s,%s)"
+        sql = "insert into " + env + ".trend (trend,token,pair,timeframe) values (%s,%s,%s,%s)"
         cursor.execute(sql, data)
         gcount = cursor.rowcount
         # commit the transaction
@@ -548,7 +548,7 @@ def listtrendparams(m):
         a = df.index.size
         bot.send_message(cid, "*You selected: *" + gpair + " for a timeframe of: " + gframe, parse_mode='Markdown')
         for i in df.index:
-            bot.send_message(cid, "*Trend: *" + str(df['trend'][i]) + "*\nDowntrend: *" + str(df['downtrend'][i]) + "\n*Uptrend: *" + str(df['uptrend'][i])  if a != 0 else 'No records found', parse_mode='Markdown')
+            bot.send_message(cid, "Trend: " + str(df['trend'][i]) if a != 0 else 'No records found', parse_mode='Markdown')
             bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)        
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')    
@@ -1175,7 +1175,7 @@ def trendtime(m):
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else:
        gnext = set_params
-       bot.send_message(cid, 'Put threshold for trend the first value is the numbers of periods back, then uptrend and downtrnd. You can adjust the threshold values (-0.1 and 0.1) based on your specific criteria for defining an uptrend or downtrend normaltrend, example 5|-0.1|0.1 , it will update trendtime function', parse_mode='Markdown', reply_markup=markup)                        
+       bot.send_message(cid, 'Put threshold for trend. It calculates the N-period moving average (ma) and then determines the trend based on the difference between the last and first values of the moving average with a tolerance of 2%, example 5 (ma5), 10 (ma10), 20 (ma20)', parse_mode='Markdown', reply_markup=markup)                        
        bot.register_next_step_handler_by_chat_id(cid, trendtimeActions)
 
 def trendtimeActions(m):
@@ -1185,7 +1185,7 @@ def trendtimeActions(m):
     valor = m.text
     global gdata, gframe, gpair, genv
     user = getUser(cid, genv)
-    gdata = (float(valor.split('|')[0]),float(valor.split('|')[1]),float(valor.split('|')[2]),cid,gpair,gframe)
+    gdata = (float(valor),cid,gpair,gframe)
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
@@ -1391,8 +1391,9 @@ def trend(m):
     if  int(user['token'].values) == cid:
         trendParams = pd.read_sql("SELECT * FROM " + genv + ".trend where token = '" + str(cid) + "' and pair ='" + gpair + "' and timeframe ='" + valor + "'",con=db_con)
         a = trendParams.index.size
+        market_prices = tr.trendBot(500, gpair, valor)
         bot.send_message(cid, "You selected " + gpair + " " + valor + " timeframe") 
-        bot.send_message(cid, 'Trend in real time ' + str("{:.10f}".format(tr.trendBot(trendParams['trend'][0],gpair, valor))) if a != 0 else 'No records found', parse_mode='Markdown', reply_markup=markup)    
+        bot.send_message(cid, 'Trend in real time is : ' + str(tr.calculate_trend(market_prices, int(trendParams['trend'][0]))) if a != 0 else 'No records found', parse_mode='Markdown', reply_markup=markup)    
         bot.send_message(cid, "Done..")                     
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         
