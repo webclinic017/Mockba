@@ -150,7 +150,7 @@ def trendTime(data, env):
         conn = psycopg2.connect(host=host, database=database, user=user, password=password)
         cursor = conn.cursor()
         # insert data into the database
-        sql = "insert into " + env + ".trend (trend,token,pair,timeframe) values (%s,%s,%s,%s)"
+        sql = "insert into " + env + ".trend (trend,token,pair,timeframe,tolerance) values (%s,%s,%s,%s,%s)"
         cursor.execute(sql, data)
         gcount = cursor.rowcount
         # commit the transaction
@@ -1175,7 +1175,7 @@ def trendtime(m):
        bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
     else:
        gnext = set_params
-       bot.send_message(cid, 'Put threshold for trend. It calculates the N-period moving average (ma) and then determines the trend based on the difference between the last and first values of the moving average with a tolerance of 2%, example 5 (ma5), 10 (ma10), 20 (ma20)', parse_mode='Markdown', reply_markup=markup)                        
+       bot.send_message(cid, 'Put periods and tolerance for trend. It calculates the N-period moving average (ma) and then determines the trend based on the difference between the last and first values of the moving average with its tolerance, example 5 (ma5), 10 (ma10), 20 (ma20). \n Please add number of periods and tolerance | separated, example 5|0.5', parse_mode='Markdown', reply_markup=markup)                        
        bot.register_next_step_handler_by_chat_id(cid, trendtimeActions)
 
 def trendtimeActions(m):
@@ -1185,7 +1185,7 @@ def trendtimeActions(m):
     valor = m.text
     global gdata, gframe, gpair, genv
     user = getUser(cid, genv)
-    gdata = (float(valor),cid,gpair,gframe)
+    gdata = (float(valor.split("|")[0]),cid,gpair,gframe, float(valor.split("|")[1])/100)
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
@@ -1393,7 +1393,7 @@ def trend(m):
         a = trendParams.index.size
         market_prices = tr.trendBot(500, gpair, valor)
         bot.send_message(cid, "You selected " + gpair + " " + valor + " timeframe") 
-        bot.send_message(cid, 'Trend in real time is : ' + str(tr.calculate_trend(market_prices, int(trendParams['trend'][0]))) if a != 0 else 'No records found', parse_mode='Markdown', reply_markup=markup)    
+        bot.send_message(cid, 'Trend in real time is : ' + str(tr.calculate_trend(market_prices, int(trendParams['trend'][0]), int(trendParams['tolerance'][0]))) if a != 0 else 'No records found', parse_mode='Markdown', reply_markup=markup)    
         bot.send_message(cid, "Done..")                     
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         
