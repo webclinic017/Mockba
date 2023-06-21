@@ -59,23 +59,13 @@ def check_params(env, token, pair, timeframe):
     else:
         return False  
 
-# # Function to check trend result
-def trendResult(trend, trendParams):
-    # print("{:.10f}".format(trend), float(trendParams['downtrend'][0]), float(trendParams['uptrend'][0]), abs(float(trend)) < float(trendParams['downtrend'][0]), abs(float(trend)) > float(trendParams['uptrend'][0]))
-    if float(trend) < float(trendParams['downtrend'][0]):
-        return 'downtrend'
-    elif float(trend) > float(trendParams['uptrend'][0]):
-        return 'uptrend'
-    else:
-        return 'normaltrend'   
-
 # # Function to check conditions for sell
 def check_conditionsSell(close, nextopsval, sellflag, ma, rsi):
-    return (close >= nextopsval) & (sellflag == 1) & (close < ma) & (rsi < 59)
+    return (close >= nextopsval) & (sellflag == 1) & (close < ma) & (rsi < 60)
 
 # # Function to check conditions for buy
 def check_conditionsBuy(close, nextopsval, sellflag, ma, rsi):
-    return (close <= nextopsval) & (sellflag == 0) & (close > ma) & (rsi > 59) 
+    return (close <= nextopsval) & (sellflag == 0) & (close > ma) & (rsi > 60) 
 
 # Def insert last data ops
 def act_trader_nextOps(data, env):
@@ -234,7 +224,6 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'op_action'] = 'mySell'
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
-            # df.loc[i, 'vlparam'] = trendquery
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -243,7 +232,6 @@ def backtest(values, env, token, timeframe, pair):
             operations.loc[0, 'counterbuy'] = 1
             operations.loc[0, 'ops'] = 'mySell'
             operations.loc[0, 'close_time'] = '444444444'
-            # operations.loc[0, 'trend'] = trendquery
             operations.loc[0, 'token'] = token
             operations.loc[0, 'pair'] = pair
             operations.loc[0, 'timeframe'] = timeframe
@@ -266,7 +254,6 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'op_action'] = 'stopLoss'
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
-            # df.loc[i, 'vlparam'] = trendquery
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -275,7 +262,6 @@ def backtest(values, env, token, timeframe, pair):
             operations.loc[0, 'counterbuy'] = 1
             operations.loc[0, 'ops'] = 'stoploss'
             operations.loc[0, 'close_time'] = '444444444'
-            #operations.loc[0, 'trend'] = trendquery
             operations.loc[0, 'token'] = token
             operations.loc[0, 'pair'] = pair
             operations.loc[0, 'timeframe'] = timeframe
@@ -298,7 +284,6 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'op_action'] = 'myBuy'
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
-            # df.loc[i, 'vlparam'] = trendquery
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -307,7 +292,6 @@ def backtest(values, env, token, timeframe, pair):
             operations.loc[0, 'counterbuy'] = 1
             operations.loc[0, 'ops'] = 'buy'
             operations.loc[0, 'close_time'] = '444444444'
-            #operations.loc[0, 'trend'] = trendquery
             operations.loc[0, 'token'] = token
             operations.loc[0, 'pair'] = pair
             operations.loc[0, 'timeframe'] = timeframe 
@@ -330,7 +314,6 @@ def backtest(values, env, token, timeframe, pair):
             df.loc[i, 'op_action'] = 'stopLoss'
             df.loc[i, 'qty'] = qty
             df.loc[i, 'nextOps'] = nextOps
-            # df.loc[i, 'vlparam'] = trendquery
             # Updating trader operation dataframe
             operations.loc[0, 'qty'] = qty
             operations.loc[0, 'nextopsval'] = nextOps
@@ -339,7 +322,6 @@ def backtest(values, env, token, timeframe, pair):
             operations.loc[0, 'counterbuy'] = 1
             operations.loc[0, 'ops'] = 'buy'
             operations.loc[0, 'close_time'] = '444444444'
-            #operations.loc[0, 'trend'] = trendquery
             operations.loc[0, 'token'] = token
             operations.loc[0, 'pair'] = pair
             operations.loc[0, 'timeframe'] = timeframe
@@ -351,7 +333,7 @@ def backtest(values, env, token, timeframe, pair):
     df.to_excel(str(pair) + "_" + str(timeframe) + "_" + str(token) + ".xlsx")
 
 # start = datetime.now()
-# pair = 'FTMUSDT'
+# pair = 'LUNCUSDT'
 # token = '556159355'
 # timeframe = '5m'
 # env = 'backtest'
@@ -359,5 +341,5 @@ def backtest(values, env, token, timeframe, pair):
 # if check_params(env, token, pair, timeframe):
 #     print('No data for this selection, check you have parameter, ma, rsi and historical data for ' + pair + ' of ' + timeframe)
 # else:   
-#     backtest('2023-01-01|2023-06-30|10000',env, token, timeframe, pair)
+#     backtest('2023-05-01|2023-06-30|10000',env, token, timeframe, pair)
 #     print('Tiempo de ejecución  ' + str(datetime.now() - start))    
