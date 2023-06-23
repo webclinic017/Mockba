@@ -61,51 +61,22 @@ def check_params(env, token, pair, timeframe):
 
 # # Function to check conditions for sell
 def check_conditionsSell(close, nextopsval, sellflag, ma, rsi):
-    return (close >= nextopsval) & (sellflag == 1) & (close < ma) & (rsi < 60)
+    return (close > nextopsval) & (sellflag == 1) & (close < ma) & (rsi < 60) 
 
 # # Function to check conditions for buy
 def check_conditionsBuy(close, nextopsval, sellflag, ma, rsi):
-    return (close <= nextopsval) & (sellflag == 0) & (close > ma) & (rsi > 60) 
-
-# Def insert last data ops
-def act_trader_nextOps(data, env):
-    try:
-        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
-        cursor = conn.cursor()
-        # insert data into the database
-        sql = f"INSERT INTO {env}.trader(qty,nextopsval,nextOps,sellflag,counterbuy,ops,close_time,trend,token,pair,timeframe) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
-        cursor.execute(sql, data)
-        # commit the transaction
-        conn.commit()
-    except psycopg2.Error as e:
-        print("Error:", e)
-    finally:
-        # close the cursor and connection
-        cursor.close()
-        if conn is not None:
-           conn.close()           
-
+    return (close < nextopsval) & (sellflag == 0) & (close > ma) & (rsi > 60) 
+  
 ################################################BACKTEST#######################################################
 
 def backtest(values, env, token, timeframe, pair):
-
-    # Define variables operation
-    marginSell = 0
-    marginBuy = 0
-    StopLoss = 0
-    counterbuy = 0  # Counter how many ops buy
-    fee = 0
-    nextOps = 0
-    qty = 0  # Qty buy
-    ticker = []
-
-    data = (0, 0, 'counterBuy', 0, 0, 0, 0, 0, token, pair, timeframe)
-    act_trader_nextOps(data, env)
-
+    # the loop will start in the row number of the MA, for example MA99 will start in row 98
+    #
     print("Backtesting in progress, this take time...")
 
-    # Set the display options for float formatting
-    pd.set_option('display.float_format', '{:.8f}'.format)
+    # Define variables operation
+    fee = 0
+    qty = 0  # Qty buy
 
     # # Function to get historical data
     def get_historical_data(pair, timeframe, token, values):
@@ -113,12 +84,12 @@ def backtest(values, env, token, timeframe, pair):
         table = pair + "_" + timeframe + '_' + str(token)
         f = "'" + values.split('|')[0] + "'"
         t = "'" + values.split('|')[1] + "'"
-        query = f"SELECT {field}, close_time, close"
+        query = f"SELECT {field},  close"
         query += f' FROM public."{table}"'
         query += f" WHERE timestamp >= {f}"
         query += f" AND timestamp <= {t}"
         query += f" ORDER BY 1"
-        #print(query)
+        # print(query)
         df = pd.read_sql(query, con=db_con)
         return df
     
@@ -130,23 +101,26 @@ def backtest(values, env, token, timeframe, pair):
     invest = float(values.split('|')[2])  # Initial value
     feeBuy = 0.099921 / 100  # Binance fee when buying
     feeSell = 0.1 / 100  # Binance fee when selling
+    counterBuy = 0 # Counter how many ops buy
+    counterSell = 0 # Counter how manu ops sell
 
     # Build aditional clumns to dataframe
     df['op_action'] = "" # First Buy
     df['qty'] = 0 # The counter buy
     df['nextOps'] = 0  # Next operation to trade
-    df['vltrend'] = 0  # Trend
-    df['MarginBuy'] = 0 # The margin Buy
+    df['MarginBuy'] = 0 # Next margin buy
     df['MarginSell'] = 0 # The margin sell
     df['StopLoss'] = 0 # The Stop Loss
-    df['vlparam'] = "" # The Param
-    # df['trend'] = "" # The Trend
     df['ma'] = 0 # The MA
     df['rsi'] = 0 # The RSI
+    df['trend'] = ""
 
+    # fecth params from database
     ma_period = pd.read_sql(f"SELECT value FROM {env}.indicators WHERE token = '{token}' AND timeframe = '{timeframe}' AND pair = '{pair}' AND indicator = 'MA'", con=db_con)['value'][0].astype(int)
     rsi_period = pd.read_sql(f"SELECT value FROM {env}.indicators WHERE token = '{token}' AND timeframe = '{timeframe}' AND pair = '{pair}' AND indicator = 'RSI'", con=db_con)['value'][0].astype(int)
     trendParams = pd.read_sql(f"SELECT * FROM  {env}.trend where token = '{token}' AND timeframe = '{timeframe}' AND pair = '{pair}'", con=db_con)
+    params = pd.read_sql(f"SELECT * FROM {env}.parameters where  token = '{token}' and pair = '{pair}' and timeframe = '{timeframe}'", con=db_con)
+    
     # # Calculate moving average and RSI
     df['close'] = pd.to_numeric(df['close'], errors='coerce')
     df['ma'] = df['close'].rolling(ma_period).mean()
@@ -161,179 +135,89 @@ def backtest(values, env, token, timeframe, pair):
     # Vectorizing the trend to avoid a foor loop that makes the calculation slower
     # Assuming you have a DataFrame named 'df' with a column 'close'
     window_size = int(trendParams['trend'][0])
-    df['trend'] = ''
     for i in range(len(df)):
         prices = df['close'].iloc[max(0, i - window_size + 1):i + 1].tolist()
         df.at[i, 'trend'] = tr.calculate_trend(prices , window_size, float(trendParams['tolerance'][0])) if tr.calculate_trend(prices , window_size, float(trendParams['tolerance'][0])) != 'Not enough data' else 'normaltrend'
+        # Vectorizing margins for
+        params_filtered = params[(params['trend'] == df['trend'][i])]
+        df.at[i, 'MarginBuy'] = float(params_filtered['margingbuy'] / 100) + 1 # %
+        df.at[i, 'MarginSell'] = float(params_filtered['margingsell'] / 100) + 1 # %
+        df.at[i, 'StopLoss'] = float(params_filtered['stoploss'] / 100) # %
     
-    # # Operations
-    operations = pd.read_sql(f"SELECT * FROM {env}.trader where token = '{token}' and pair = '{pair}' and timeframe ='{timeframe}'", con=db_con)
-
-    # # Getting the first params
-    params = pd.read_sql(f"SELECT * FROM {env}.parameters where  token = '{token}' and pair = '{pair}' and timeframe = '{timeframe}'", con=db_con)
-    
-    #  # Getting trend params
-    trendParams = pd.read_sql(f"SELECT * FROM {env}.trend where token = '{token}' and timeframe = '{timeframe}' and pair = '{pair}'", con=db_con)
-
-    marginSell = float(params['margingsell'][0] / 100) + 1  # %
-    marginBuy = float(params['margingbuy'][0] / 100) + 1    # %
-    StopLoss = float(params['stoploss'][0] / 100) + 1  # %
-    fee = float((invest / df['close'][0]) * feeBuy)
-    qty = float((invest / df['close'][0]) - fee)
-    nextOps = float(df['close'][0] * marginSell)
+    fee = float((invest / df['close'][int(ma_period-1)]) * feeBuy)
+    qty = float((invest / df['close'][int(ma_period-1)]) - fee)
+    nextOps = float(df['close'][0] * df['MarginSell'][0])
     sellflag = 1  
     
-    # # Updating dataframe colums  
-    df.loc[0, 'MarginBuy'] = marginBuy if operations['counterbuy'][0] == 0 else 0
-    df.loc[0, 'MarginSell'] = marginSell if operations['counterbuy'][0] == 0 else 0
-    df.loc[0, 'StopLoss'] = StopLoss if operations['counterbuy'][0] == 0 else 0
-    df.loc[0, 'op_action'] = 'firstbuy' if operations['counterbuy'][0] == 0 else 0
-    df.loc[0, 'qty'] = qty if operations['counterbuy'][0] == 0 else 0
-    df.loc[0, 'nextOps'] = nextOps if operations['counterbuy'][0] == 0 else 0
-    counterbuy = 1
-    # Updating trader operation dataframe
-    operations.loc[0, 'qty'] = qty
-    operations.loc[0, 'nextopsval'] = nextOps
-    operations.loc[0, 'nextops'] = 'sell'
-    operations.loc[0, 'sellflag'] = sellflag
-    operations.loc[0, 'counterbuy'] = 1
-    operations.loc[0, 'ops'] = 'firstbuy'
-    operations.loc[0, 'close_time'] = '444444444'
-    operations.loc[0, 'trend'] = 'normaltrend'
-    operations.loc[0, 'token'] = token
-    operations.loc[0, 'pair'] = pair
-    operations.loc[0, 'timeframe'] = timeframe
+    # # # Updating dataframe colums  
+    df.loc[int(ma_period-1), 'op_action'] = 'firstbuy'
+    df.loc[int(ma_period-1), 'qty'] = qty
+    df.loc[int(ma_period-1), 'nextOps'] = nextOps
 
-    # # Starting loop all the dataframe
-    for i in range(len(df['close'])):
-        # Now implement our margin and sell if signal for rsi and ma
-        if check_conditionsSell(df['close'][i], float(operations['nextopsval'][0]), operations['sellflag'][0], df['ma'][i], df['rsi'][i]):
-            params_filtered = params[(params['trend'] == df['trend'][i])]
-            # Assign values depending trend
-            marginSell = float(params_filtered['margingsell'] / 100) + 1  # %
-            marginBuy = float(params_filtered['margingbuy'] / 100) + 1    # %
-            StopLoss = float(params_filtered['stoploss'] / 100) + 1  # %
-            fee = (((invest / df['close'][i]) * df['close'][i])) * feeSell
-            qty = (operations['qty'][0] *  df['close'][i]) - fee  # Sell amount
-            nextOps = qty / ((qty / df['close'][i]) * marginBuy)  # Next buy
-            sellflag = 0
-            # Updating dataframe colums  
-            df.loc[i, 'MarginBuy'] = marginBuy
-            df.loc[i, 'MarginSell'] = marginSell
-            df.loc[i, 'StopLoss'] = StopLoss
-            df.loc[i, 'op_action'] = 'mySell'
-            df.loc[i, 'qty'] = qty
-            df.loc[i, 'nextOps'] = nextOps
-            # Updating trader operation dataframe
-            operations.loc[0, 'qty'] = qty
-            operations.loc[0, 'nextopsval'] = nextOps
-            operations.loc[0, 'nextops'] = 'buy'
-            operations.loc[0, 'sellflag'] = sellflag
-            operations.loc[0, 'counterbuy'] = 1
-            operations.loc[0, 'ops'] = 'mySell'
-            operations.loc[0, 'close_time'] = '444444444'
-            operations.loc[0, 'token'] = token
-            operations.loc[0, 'pair'] = pair
-            operations.loc[0, 'timeframe'] = timeframe
+    # # # Starting loop all the dataframe
+    for i in range(int(ma_period), len(df['close'])):
+         counterBuy =  i
+         # Now implement our margin and sell if signal for rsi and ma
+         # Assuming your DataFrame is named 'df'
+         prev_next = df[df['nextOps'] > 0].index[-1]  #taking the previous position value, because we don't know when is next
+         prev_qty = df[df['qty'] > 0].index[-1] # taking the previous value, because we don't know when is next
+         
+         if check_conditionsSell(df['close'][i], df['nextOps'][i - (i - counterBuy)], sellflag, df['ma'][i], df['rsi'][i]):
+             # Assign values depending trend
+             fee = (((invest / df['close'][i]) * df['close'][i])) * feeSell
+             qty = (df['qty'][prev_qty] *  df['close'][i]) - fee  # Sell amount
+             nextOps = qty / ((qty / df['close'][i]) * float(df['MarginBuy'][i]))  # Next buy
+             sellflag = 0
+             # Updating dataframe colums  
+             df.loc[i, 'op_action'] = 'mySell'
+             df.loc[i, 'qty'] = qty
+             df.loc[i, 'nextOps'] = nextOps
+             counterSell = i
             # print('sell')
-        # # Force sell
-        elif (df['close'][i] <= (float(operations['nextopsval'][0]) - ((float(operations['nextopsval'][0]) * StopLoss)))) & (operations['sellflag'][0] == 1):
-            params_filtered = params[(params['trend'] == df['trend'][i])]
-            # Assign values depending trend
-            marginSell = float(params_filtered['margingsell'][0] / 100) + 1  # %
-            marginBuy = float(params_filtered['margingbuy'][0] / 100) + 1    # %
-            StopLoss = float(params_filtered['stoploss'][0] / 100) + 1  # %
-            fee = (((invest / df['close'][i]) * df['close'][i])) * feeSell
-            qty = (operations['qty'][0] *  df['close'][i]) - fee  # Sell amount
-            nextOps = qty / ((qty / df['close'][i]) * marginBuy)  # Next buy
-            sellflag = 0
-            # Updating dataframe colums  
-            df.loc[i, 'MarginBuy'] = marginBuy
-            df.loc[i, 'MarginSell'] = marginSell
-            df.loc[i, 'StopLoss'] = StopLoss
-            df.loc[i, 'op_action'] = 'stopLoss'
-            df.loc[i, 'qty'] = qty
-            df.loc[i, 'nextOps'] = nextOps
-            # Updating trader operation dataframe
-            operations.loc[0, 'qty'] = qty
-            operations.loc[0, 'nextopsval'] = nextOps
-            operations.loc[0, 'nextops'] = 'buy'
-            operations.loc[0, 'sellflag'] = sellflag
-            operations.loc[0, 'counterbuy'] = 1
-            operations.loc[0, 'ops'] = 'stoploss'
-            operations.loc[0, 'close_time'] = '444444444'
-            operations.loc[0, 'token'] = token
-            operations.loc[0, 'pair'] = pair
-            operations.loc[0, 'timeframe'] = timeframe
-            # print('force sell')
-        # # Now find the next value for sell or apply stop loss
-        elif check_conditionsBuy(df['close'][i], float(operations['nextopsval'][0]), operations['sellflag'][0], df['ma'][i], df['rsi'][i]):  
-            params_filtered = params[(params['trend'] == df['trend'][i])]
-            # Assign values depending trend
-            marginSell = float(params_filtered['margingsell'] / 100) + 1  # %
-            marginBuy = float(params_filtered['margingbuy'] / 100) + 1    # %
-            StopLoss = float(params_filtered['stoploss'] / 100) + 1  # %
-            fee = (operations['qty'][0] / df['close'][i]) * feeBuy
-            qty = (qty /  df['close'][i]) - fee  # Buy amount
-            nextOps = df['close'][i] * marginSell
-            sellflag = 1
-            # Updating dataframe colums  
-            df.loc[i, 'MarginBuy'] = marginBuy
-            df.loc[i, 'MarginSell'] = marginSell
-            df.loc[i, 'StopLoss'] = StopLoss
-            df.loc[i, 'op_action'] = 'myBuy'
-            df.loc[i, 'qty'] = qty
-            df.loc[i, 'nextOps'] = nextOps
-            # Updating trader operation dataframe
-            operations.loc[0, 'qty'] = qty
-            operations.loc[0, 'nextopsval'] = nextOps
-            operations.loc[0, 'nextops'] = 'sell'
-            operations.loc[0, 'sellflag'] = sellflag
-            operations.loc[0, 'counterbuy'] = 1
-            operations.loc[0, 'ops'] = 'buy'
-            operations.loc[0, 'close_time'] = '444444444'
-            operations.loc[0, 'token'] = token
-            operations.loc[0, 'pair'] = pair
-            operations.loc[0, 'timeframe'] = timeframe 
-            # print('buy')
-        # # Stop Loss after
-        elif (df['close'][i] >= (float(operations['nextopsval'][0]) + ((float(operations['nextopsval'][0]) * StopLoss)))) & (operations['sellflag'][0] == 0): 
-            params_filtered = params[(params['trend'] == df['trend'][i])]
-            # Assign values depending trend
-            marginSell = float(params_filtered['margingsell'] / 100) + 1  # %
-            marginBuy = float(params_filtered['margingbuy'] / 100) + 1    # %
-            StopLoss = float(params_filtered['stoploss'] / 100) + 1  # %
-            fee = (operations['qty'][0] / df['close'][i]) * feeBuy
-            qty = (qty /  df['close'][i]) - fee  # Buy amount
-            nextOps = df['close'][i] * marginSell
-            sellflag = 1
-            # Updating dataframe colums  
-            df.loc[i, 'MarginBuy'] = marginBuy
-            df.loc[i, 'MarginSell'] = marginSell
-            df.loc[i, 'StopLoss'] = StopLoss
-            df.loc[i, 'op_action'] = 'stopLoss'
-            df.loc[i, 'qty'] = qty
-            df.loc[i, 'nextOps'] = nextOps
-            # Updating trader operation dataframe
-            operations.loc[0, 'qty'] = qty
-            operations.loc[0, 'nextopsval'] = nextOps
-            operations.loc[0, 'nextops'] = 'sell'
-            operations.loc[0, 'sellflag'] = sellflag
-            operations.loc[0, 'counterbuy'] = 1
-            operations.loc[0, 'ops'] = 'buy'
-            operations.loc[0, 'close_time'] = '444444444'
-            operations.loc[0, 'token'] = token
-            operations.loc[0, 'pair'] = pair
-            operations.loc[0, 'timeframe'] = timeframe
-    
- 
+         # # Force sell
+         elif (df['close'][i] <= (df['nextOps'][i - (i - counterBuy)] - (df['nextOps'][i - (i - counterBuy)] * float(df['StopLoss'][i])))) & (sellflag == 1):
+             # Assign values depending trend
+             fee = (((invest / df['close'][i]) * df['close'][i])) * feeSell
+             qty = (df['qty'][prev_qty] *  df['close'][i]) - fee  # Sell amount
+             nextOps = qty / ((qty / df['close'][i]) * float(df['MarginBuy'][i]))  # Next buy
+             sellflag = 0
+             # Updating dataframe colums  
+             df.loc[i, 'op_action'] = 'stopLoss'
+             df.loc[i, 'qty'] = qty
+             df.loc[i, 'nextOps'] = nextOps
+             counterSell = i 
+             # print('force sell')
+         # # Now find the next value for sell or apply stop loss
+         elif check_conditionsBuy(df['close'][i], df['nextOps'][i - (i - counterSell)], sellflag, df['ma'][i], df['rsi'][i]):
+             fee = (df['qty'][prev_qty] / df['close'][i]) * feeBuy
+             qty = (df['qty'][prev_qty] /  df['close'][i]) - fee  # Buy amount
+             nextOps = df['close'][i] * float(df['MarginSell'][i])
+             sellflag = 1
+             # Updating dataframe colums  
+             df.loc[i, 'op_action'] = 'myBuy'
+             df.loc[i, 'qty'] = qty
+             df.loc[i, 'nextOps'] = nextOps
+             counterBuy = i
+             # print('buy')  
+         # # Stop Loss after
+         elif (df['close'][i] >= (df['nextOps'][i - (i - counterSell)] + ((df['nextOps'][i - (i - counterSell)] * float(df['StopLoss'][i]))))) & (sellflag == 0): 
+             fee = (df['qty'][prev_qty] / df['close'][i]) * feeBuy
+             qty = (df['qty'][prev_qty] /  df['close'][i]) - fee  # Buy amount
+             nextOps = df['close'][i] * float(df['MarginSell'][i])
+             sellflag = 1
+             # Updating dataframe colums  
+             df.loc[i, 'op_action'] = 'stopLoss'
+             df.loc[i, 'qty'] = qty
+             df.loc[i, 'nextOps'] = nextOps
+             counterBuy =  i  
+     
     # Delete rows where column 'A' is equal to zero
     df = df[df['qty'] != 0]
     # # Export DataFrame to Excel
     df.to_excel(str(pair) + "_" + str(timeframe) + "_" + str(token) + ".xlsx")
 
 # start = datetime.now()
-# pair = 'LUNCUSDT'
+# pair = 'ETHUSDT'
 # token = '556159355'
 # timeframe = '5m'
 # env = 'backtest'
@@ -341,5 +225,5 @@ def backtest(values, env, token, timeframe, pair):
 # if check_params(env, token, pair, timeframe):
 #     print('No data for this selection, check you have parameter, ma, rsi and historical data for ' + pair + ' of ' + timeframe)
 # else:   
-#     backtest('2023-05-01|2023-06-30|10000',env, token, timeframe, pair)
-#     print('Tiempo de ejecución  ' + str(datetime.now() - start))    
+#     backtest('2023-01-01|2023-06-30|2000',env, token, timeframe, pair)
+#     print('Execution time  ' + str(datetime.now() - start))    

@@ -985,7 +985,7 @@ def paramsActions(m):
     global gdata, gframe, gpair, gp5, genv, gavailable
     user = getUser(cid, genv)
     gavailable = m.text
-    gdata = (gp1.lower(), gp2, gp4, gp5,cid,gpair,gframe,gavailable)
+    gdata = (gp1.lower(), float(gp2), float(gp4), float(gp5),cid,gpair,gframe,gavailable)
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
