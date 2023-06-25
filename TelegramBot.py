@@ -548,7 +548,7 @@ def listtrendparams(m):
         a = df.index.size
         bot.send_message(cid, "*You selected: *" + gpair + " for a timeframe of: " + gframe, parse_mode='Markdown')
         for i in df.index:
-            bot.send_message(cid, "Trend: " + str(df['trend'][i]) if a != 0 else 'No records found', parse_mode='Markdown')
+            bot.send_message(cid, "Trend: " + str(df['trend'][i]) + ' and tolernance of  ' + str(df['tolerance'][i]*100) + ' %' if a != 0 else 'No records found', parse_mode='Markdown')
             bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)        
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')    
@@ -1393,7 +1393,7 @@ def trend(m):
         a = trendParams.index.size
         market_prices = tr.trendBot(500, gpair, valor)
         bot.send_message(cid, "You selected " + gpair + " " + valor + " timeframe") 
-        bot.send_message(cid, 'Trend in real time is : ' + str(tr.calculate_trend(market_prices, int(trendParams['trend'][0]), int(trendParams['tolerance'][0]))) if a != 0 else 'No records found', parse_mode='Markdown', reply_markup=markup)    
+        bot.send_message(cid, 'Trend in real time is : ' + str(tr.calculate_trend(market_prices, int(trendParams['trend'][0]), int(trendParams['tolerance'][0])))  if a != 0 else 'No records found', parse_mode='Markdown', reply_markup=markup)    
         bot.send_message(cid, "Done..")                     
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')                         

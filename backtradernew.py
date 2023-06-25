@@ -70,6 +70,7 @@ def check_conditionsBuy(close, nextopsval, sellflag, ma, rsi):
 ################################################BACKTEST#######################################################
 
 def backtest(values, env, token, timeframe, pair):
+    
     # the loop will start in the row number of the MA, for example MA99 will start in row 98
     #
     print("Backtesting in progress, this take time...")
@@ -159,10 +160,10 @@ def backtest(values, env, token, timeframe, pair):
          counterBuy =  i
          # Now implement our margin and sell if signal for rsi and ma
          # Assuming your DataFrame is named 'df'
-         prev_next = df[df['nextOps'] > 0].index[-1]  #taking the previous position value, because we don't know when is next
+         prev_next = df[df['nextOps'] > 0].index[-1]  # taking the previous position value, because we don't know when is next
          prev_qty = df[df['qty'] > 0].index[-1] # taking the previous value, because we don't know when is next
          
-         if check_conditionsSell(df['close'][i], df['nextOps'][i - (i - counterBuy)], sellflag, df['ma'][i], df['rsi'][i]):
+         if check_conditionsSell(df['close'][i], df['nextOps'][prev_next], sellflag, df['ma'][i-1], df['rsi'][i-1]):
              # Assign values depending trend
              fee = (((invest / df['close'][i]) * df['close'][i])) * feeSell
              qty = (df['qty'][prev_qty] *  df['close'][i]) - fee  # Sell amount
@@ -175,7 +176,7 @@ def backtest(values, env, token, timeframe, pair):
              counterSell = i
             # print('sell')
          # # Force sell
-         elif (df['close'][i] <= (df['nextOps'][i - (i - counterBuy)] - (df['nextOps'][i - (i - counterBuy)] * float(df['StopLoss'][i])))) & (sellflag == 1):
+         elif (df['close'][i] <= (df['nextOps'][prev_next] - (df['nextOps'][prev_next] * float(df['StopLoss'][i])))) & (sellflag == 1):
              # Assign values depending trend
              fee = (((invest / df['close'][i]) * df['close'][i])) * feeSell
              qty = (df['qty'][prev_qty] *  df['close'][i]) - fee  # Sell amount
@@ -188,7 +189,7 @@ def backtest(values, env, token, timeframe, pair):
              counterSell = i 
              # print('force sell')
          # # Now find the next value for sell or apply stop loss
-         elif check_conditionsBuy(df['close'][i], df['nextOps'][i - (i - counterSell)], sellflag, df['ma'][i], df['rsi'][i]):
+         elif check_conditionsBuy(df['close'][i], df['nextOps'][prev_next], sellflag, df['ma'][i-1], df['rsi'][i-1]):
              fee = (df['qty'][prev_qty] / df['close'][i]) * feeBuy
              qty = (df['qty'][prev_qty] /  df['close'][i]) - fee  # Buy amount
              nextOps = df['close'][i] * float(df['MarginSell'][i])
@@ -200,7 +201,7 @@ def backtest(values, env, token, timeframe, pair):
              counterBuy = i
              # print('buy')  
          # # Stop Loss after
-         elif (df['close'][i] >= (df['nextOps'][i - (i - counterSell)] + ((df['nextOps'][i - (i - counterSell)] * float(df['StopLoss'][i]))))) & (sellflag == 0): 
+         elif (df['close'][i] >= (df['nextOps'][prev_next] + ((df['nextOps'][prev_next] * float(df['StopLoss'][i]))))) & (sellflag == 0): 
              fee = (df['qty'][prev_qty] / df['close'][i]) * feeBuy
              qty = (df['qty'][prev_qty] /  df['close'][i]) - fee  # Buy amount
              nextOps = df['close'][i] * float(df['MarginSell'][i])
@@ -217,7 +218,7 @@ def backtest(values, env, token, timeframe, pair):
     df.to_excel(str(pair) + "_" + str(timeframe) + "_" + str(token) + ".xlsx")
 
 # start = datetime.now()
-# pair = 'ETHUSDT'
+# pair = 'LUNCUSDT'
 # token = '556159355'
 # timeframe = '5m'
 # env = 'backtest'
@@ -225,5 +226,5 @@ def backtest(values, env, token, timeframe, pair):
 # if check_params(env, token, pair, timeframe):
 #     print('No data for this selection, check you have parameter, ma, rsi and historical data for ' + pair + ' of ' + timeframe)
 # else:   
-#     backtest('2023-01-01|2023-06-30|2000',env, token, timeframe, pair)
+#     backtest('2023-05-15|2023-06-30|100',env, token, timeframe, pair)
 #     print('Execution time  ' + str(datetime.now() - start))    
