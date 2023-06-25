@@ -156,7 +156,7 @@ def update_trader_nextOps(data):
         conn = psycopg2.connect(host=host, database=database, user=user, password=password)
         cursor = conn.cursor()
         # insert data into the database
-        sql = f"update main.trader set nextOpsVal = %s, trend = %s, updatedAt = %s where pair = %s and timeframe = %s"
+        sql = f"update main.trader set nextOpsVal = %s, trend = %s, updatedAt = %s where token = %s and pair = %s and timeframe = %s"
         cursor.execute(sql, data)
         # commit the transaction
         conn.commit()

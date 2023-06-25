@@ -721,7 +721,7 @@ def paramsdate(m):
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('CANCEL')
     markup.row(itemd)
-    bot.send_message(cid, 'Add your date an initial capital, ex, 2023-05-01|2023-05-02|100 user (|) as separator', parse_mode='Markdown', reply_markup=markup)
+    bot.send_message(cid, 'Add your date an initial capital, example, 2023-05-01|2023-05-02|100 use (|) as separator', parse_mode='Markdown', reply_markup=markup)
     bot.register_next_step_handler_by_chat_id(cid, backtestActions)    
 
 

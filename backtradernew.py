@@ -163,7 +163,7 @@ def backtest(values, env, token, timeframe, pair):
          prev_next = df[df['nextOps'] > 0].index[-1]  # taking the previous position value, because we don't know when is next
          prev_qty = df[df['qty'] > 0].index[-1] # taking the previous value, because we don't know when is next
          
-         if check_conditionsSell(df['close'][i], df['nextOps'][prev_next], sellflag, df['ma'][i-1], df['rsi'][i-1]):
+         if check_conditionsSell(df['close'][i], df['nextOps'][prev_next], sellflag, df['ma'][i], df['rsi'][i]):
              # Assign values depending trend
              fee = (((invest / df['close'][i]) * df['close'][i])) * feeSell
              qty = (df['qty'][prev_qty] *  df['close'][i]) - fee  # Sell amount
@@ -189,7 +189,7 @@ def backtest(values, env, token, timeframe, pair):
              counterSell = i 
              # print('force sell')
          # # Now find the next value for sell or apply stop loss
-         elif check_conditionsBuy(df['close'][i], df['nextOps'][prev_next], sellflag, df['ma'][i-1], df['rsi'][i-1]):
+         elif check_conditionsBuy(df['close'][i], df['nextOps'][prev_next], sellflag, df['ma'][i], df['rsi'][i]):
              fee = (df['qty'][prev_qty] / df['close'][i]) * feeBuy
              qty = (df['qty'][prev_qty] /  df['close'][i]) - fee  # Buy amount
              nextOps = df['close'][i] * float(df['MarginSell'][i])

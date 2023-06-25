@@ -60,15 +60,6 @@ def check_params(token, pair, timeframe):
     else:
         return False  
 
-# # Function to check trend result
-def trendResult(trend, trendParams):
-    # print("{:.10f}".format(trend), float(trendParams['downtrend'][0]), float(trendParams['uptrend'][0]), abs(float(trend)) < float(trendParams['downtrend'][0]), abs(float(trend)) > float(trendParams['uptrend'][0]))
-    if float(trend) < float(trendParams['downtrend'][0]):
-        return 'downtrend'
-    elif float(trend) > float(trendParams['uptrend'][0]):
-        return 'uptrend'
-    else:
-        return 'normaltrend'   
 
 # # Function to check conditions for sell
 def check_conditionsSell(close, nextopsval, sellflag, ma, rsi):
@@ -94,7 +85,8 @@ def act_trader_nextOps(data):
         # close the cursor and connection
         cursor.close()
         if conn is not None:
-           conn.close()           
+           conn.close() 
+
 # Def insert last data ops
 def act_trader_history(data):
     try:
@@ -111,12 +103,43 @@ def act_trader_history(data):
         # close the cursor and connection
         cursor.close()
         if conn is not None:
-           conn.close() 
+           conn.close()
 
-# Def get trend periods
-def getTrendPeriods(token, pair, timeframe):
-    df = pd.read_sql(f"SELECT * FROM main.trend where token = '{token}' and pair = '{pair}' and timeframe = '{timeframe}'",con=db_con)
-    return df  
+# Def insert last data ops
+def update_trader_nextOps(data):
+    try:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = f"update main.trader set nextOpsVal = %s, trend = %s, updatedAt = %s where token = %s and pair = %s and timeframe = %s"
+        cursor.execute(sql, data)
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close()
+
+# Def update close_time
+def update_trader_close_time(close_time, data):
+    try:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = f"update main.trader set close_time = '" + str(close_time) + "' where token = %s and pair = %s and timeframe = %s"
+        cursor.execute(sql, data)
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close()  
 
 # # Function to get historical data
 def get_historical_data(pair, timeframe):
@@ -159,7 +182,11 @@ while True:
 
             ma_period = pd.read_sql(f"SELECT value FROM main.indicators WHERE token = '{row.token}' AND timeframe = '{row.timeframe}' AND pair = '{row.pair}' AND indicator = 'MA'", con=db_con)['value'][0].astype(int)
             rsi_period = pd.read_sql(f"SELECT value FROM main.indicators WHERE token = '{row.token}' AND timeframe = '{row.timeframe}' AND pair = '{row.pair}' AND indicator = 'RSI'", con=db_con)['value'][0].astype(int)
-
+            trendParams = pd.read_sql(f"SELECT * FROM  main.trend where token = '{row.token}' AND timeframe = '{row.timeframe}' AND pair = '{row.pair}'", con=db_con)
+            params = pd.read_sql(f"SELECT * FROM main.parameters where  token = '{row.token}' and pair = '{row.pair}' and timeframe = '{row.timeframe}'", con=db_con)
+            signal = pd.read_sql(f"SELECT * FROM t_signal where token = {row.token} adn pair = '{row.pair}' and timeframe = '{row.timeframe}'",con=db_con)
+            operations = pd.read_sql(f"SELECT * FROM main.trader where token = {row.token} and pair = '{row.pair}' and timeframe = '{row.timeframe}'",con=db_con)
+           
             # # Calculate moving average and RSI
             df['close'] = pd.to_numeric(df['close'], errors='coerce')
             df['ma'] = df['close'].rolling(ma_period).mean()
@@ -170,28 +197,15 @@ while True:
             avg_loss = loss.rolling(rsi_period).mean()
             rs = avg_gain / avg_loss
             df['rsi'] = 100 - (100 / (1 + rs))
- 
-            periods = getTrendPeriods(row.token, row.pair, row.timeframe)
-            # Enable o dibale bot
-            signal = pd.read_sql(f"SELECT * FROM t_signal where token = {row.token} adn pair = '{row.pair}' and timeframe = '{row.timeframe}'",con=db_con)
-            # operations values
-            operations = pd.read_sql(f"SELECT * FROM main.trader where token = {row.token} and pair = '{row.pair}' and timeframe = '{row.timeframe}'",con=db_con)
-            # Getting trend params
-            trendParams = pd.read_sql(f"SELECT * FROM main.trend where token = '{row.token}' and timeframe = '{row.timeframe}' and pair = '{row.pair}'", con=db_con)
-            # Params
-            params = pd.read_sql(f"SELECT * FROM parameters where trend= 'normaltrend' and token = {row.token} and pair = '{row.pair}' and timeframe = '{row.timeframe}' ",con=db_con)
-            
+             
             if operations['close_time'].values != df[0][499]:
                 # Fisrt buy
                 if operations['counterBuy'][0] == 0: 
                     #print('First Buy')
                     ticker = []
-                    marginSell = float(params['margingsell'][0] / 100) #%
-                    marginSell = marginSell / 100 + 1 # Earning from each sell
-                    #
-                    marginBuy = float(params['margingbuy'][0] / 100) #%
-                    marginBuy = marginBuy / 100 + 1 # Earning from each buy
-                    StopLoss = float(params['stoploss'][0] / 100) # %  
+                    marginSell = float(params['margingsell'] / 100) + 1 # %
+                    marginBuy = float(params['margingbuy'] / 100) + 1 # %
+                    StopLoss = float(params['stoploss'] / 100) # %
                     #
                     availabeOf = float(params['percentage_of_available'][0] / 100)
                     invest = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'] * availabeOf) # Initial value
@@ -217,14 +231,11 @@ while True:
                             val = 499 - i
                             value = float(df[4][val])
                             ticker.append(value)
-                        trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]))
+                        trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]), float(trendParams['tolerance'][0]))
                         params_filtered = params[(params['trend'] == trendquery)]    
-                        marginSell = float(params_filtered['margingsell'] / 100) #%
-                        marginSell = marginSell / 100 + 1 # Earning from each sell
-                        #
-                        marginBuy = float(params_filtered['margingbuy'] / 100) #%
-                        marginBuy = marginBuy / 100 + 1 # Earning from each buy
-                        StopLoss = float(params_filtered['stoploss'] / 100) # %   
+                        marginSell = float(params_filtered['margingsell'] / 100) + 1 # %
+                        marginBuy = float(params_filtered['margingbuy'] / 100) + 1 # %
+                        StopLoss = float(params_filtered['stoploss'] / 100) # % 
                         #
                         availabeOf = float(params_filtered['percentage_of_available'] / 100)
                         balance = float(client.get_asset_balance(asset=x[str(row.pair):-3])['free'] * availabeOf)
@@ -250,13 +261,10 @@ while True:
                             val = 499 - i
                             value = float(df[4][val])
                             ticker.append(value)
-                        trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]))
+                        trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]), float(trendParams['tolerance'][0]))
                         params_filtered = params[(params['trend'] == trendquery)]    
-                        marginSell = float(params_filtered['margingsell'] / 100) #%
-                        marginSell = marginSell / 100 + 1 # Earning from each sell
-                        #
-                        marginBuy = float(params_filtered['margingbuy'] / 100) #%
-                        marginBuy = marginBuy / 100 + 1 # Earning from each buy
+                        marginSell = float(params_filtered['margingsell'] / 100) + 1 # %
+                        marginBuy = float(params_filtered['margingbuy'] / 100) + 1 # %
                         StopLoss = float(params_filtered['stoploss'] / 100) # % 
                         #
                         availabeOf = float(params['percentage_of_available'][0] / 100)
@@ -266,7 +274,7 @@ while True:
                         nextOps = round(qty / ((qty / float(df[4][499]) * marginBuy)),2) # Next buy
                         # print(round(qty,4))
                         sellFlag = 0
-                        data = (float(qty),float(nextOps),'buy',sellFlag,1,'forceSell',now.strftime("%d/%m/%Y %H:%M:%S"),trendResult(trend.trend(ticker), trendParams),row.token, row.pair, row.timeframe)
+                        data = (float(qty),float(nextOps),'buy',sellFlag,1,'stopLoss',now.strftime("%d/%m/%Y %H:%M:%S"),trendResult(trend.trend(ticker), trendParams),row.token, row.pair, row.timeframe)
                         client.order_market_sell(symbol=str(row.pair), quantity=qty)
                         act_trader_nextOps(data)
                         act_trader_history(data)
@@ -283,13 +291,10 @@ while True:
                             val = 499 - i
                             value = float(df[4][val])
                             ticker.append(value)
-                        trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]))
+                        trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]), float(trendParams['tolerance'][0]))
                         params_filtered = params[(params['trend'] == trendquery)]    
-                        marginSell = float(params_filtered['margingsell'] / 100) #%
-                        marginSell = marginSell / 100 + 1 # Earning from each sell
-                        #
-                        marginBuy = float(params_filtered['margingbuy'] / 100) #%
-                        marginBuy = marginBuy / 100 + 1 # Earning from each buy
+                        marginSell = float(params_filtered['margingsell'] / 100) + 1 # %
+                        marginBuy = float(params_filtered['margingbuy'] / 100) + 1 # %
                         StopLoss = float(params_filtered['stoploss'] / 100) # % 
                         #
                         availabeOf = float(params['percentage_of_available'][0] / 100)
@@ -315,13 +320,10 @@ while True:
                             val = 499 - i
                             value = float(df[4][val])
                             ticker.append(value)
-                        trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]))
+                        trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]), float(trendParams['tolerance'][0]))
                         params_filtered = params[(params['trend'] == trendquery)]    
-                        marginSell = float(params_filtered['margingsell'] / 100) #%
-                        marginSell = marginSell / 100 + 1 # Earning from each sell
-                        #
-                        marginBuy = float(params_filtered['margingbuy'] / 100) #%
-                        marginBuy = marginBuy / 100 + 1 # Earning from each buy
+                        marginSell = float(params_filtered['margingsell'] / 100) + 1 # %
+                        marginBuy = float(params_filtered['margingbuy'] / 100) + 1 # %
                         StopLoss = float(params_filtered['stoploss'] / 100) # % 
                         #     
                         availabeOf = float(params['percentage_of_available'][0] / 100)
@@ -338,5 +340,31 @@ while True:
                         #print('Done...')   
                         fee = 0
                         qty = 0
-                        nextOps = 0                                        
-    time.sleep(40) 
+                        nextOps = 0 
+                # must update the trend        
+                else:
+                        # Updating the price for the next operation
+                        data = (row.token, row.pair, row.timeframe) 
+                        update_trader_close_time(df[0][499], data)
+                        #
+                        vtrend = operations['trend'][0]
+                        vnextOps = 0
+                        ticker = [] 
+                        for i in reversed(range(trendParams['trend'][0])):
+                            val = 499 - i
+                            value = float(df[4][val])
+                            ticker.append(value)
+                        trendquery =  tr.calculate_trend(ticker, int(trendParams['trend'][0]), float(trendParams['tolerance'][0]))
+                        params_filtered = params[(params['trend'] == trendquery)]    
+                        marginSell = float(params_filtered['margingsell'] / 100) + 1 # %
+                        marginBuy = float(params_filtered['margingbuy'] / 100) + 1 # %
+                        StopLoss = float(params_filtered['stoploss'] / 100) # % 
+                        if operations['sellFlag'][0] == 1:    
+                            vnextOps = round(vticker * marginSell,2) 
+                        else:              
+                            vnextOps = round(vqty / ((vqty / vticker * marginBuy)),2) # Next buy 
+                        if vtrend != trendquery:
+                            data = (float(vnextOps),trendquery,now.strftime("%d/%m/%Y %H:%M:%S"), row.token, row.pair, row.timeframe)    
+                            #print('Updating')
+                            update_trader_nextOps(data)                                                       
+    time.sleep(120) 
