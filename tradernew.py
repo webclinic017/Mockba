@@ -167,6 +167,7 @@ while True:
     # looping all parameters of tokens, getting tokens, pairs, timeframe and percentajes
     # Loop through the DataFrame rows using itertuples()
     for row in trader.itertuples():
+        signal = pd.read_sql(f"SELECT * FROM t_signal where token = {row.token} adn pair = '{row.pair}' and timeframe = '{row.timeframe}'",con=db_con)
         # Proceed only if there are params for this dataframe
         if  check_params(row.token, row.pair, row.timeframe) == False:
             print('No params')
@@ -184,7 +185,6 @@ while True:
             rsi_period = pd.read_sql(f"SELECT value FROM main.indicators WHERE token = '{row.token}' AND timeframe = '{row.timeframe}' AND pair = '{row.pair}' AND indicator = 'RSI'", con=db_con)['value'][0].astype(int)
             trendParams = pd.read_sql(f"SELECT * FROM  main.trend where token = '{row.token}' AND timeframe = '{row.timeframe}' AND pair = '{row.pair}'", con=db_con)
             params = pd.read_sql(f"SELECT * FROM main.parameters where  token = '{row.token}' and pair = '{row.pair}' and timeframe = '{row.timeframe}'", con=db_con)
-            signal = pd.read_sql(f"SELECT * FROM t_signal where token = {row.token} adn pair = '{row.pair}' and timeframe = '{row.timeframe}'",con=db_con)
             operations = pd.read_sql(f"SELECT * FROM main.trader where token = {row.token} and pair = '{row.pair}' and timeframe = '{row.timeframe}'",con=db_con)
            
             # # Calculate moving average and RSI
@@ -224,7 +224,7 @@ while True:
                     qty = 0
                     nextOps = 0 
                 # Now implement our margin and sell if signal for rsi and ma   
-                elif check_conditionsSell(float(df[4][499]), float(operations['nextopsval'][0]), operations['sellflag'][0], df['ma'][0], df['rsi'][0]):    
+                elif check_conditionsSell(float(df[4][499]), float(operations['nextopsval'][0]), operations['sellflag'][0], df['ma'][498], df['rsi'][498]):    
                         #print('Sell')
                         ticker = []
                         for i in reversed(range(trendParams['trend'][0])):
@@ -284,7 +284,7 @@ while True:
                         qty = 0
                         nextOps = 0
                     # Now find the next value for sell or apply stop loss
-                elif check_conditionsBuy(float(df[4][499]), float(operations['nextopsval'][0]), operations['sellflag'][0], df['ma'][0], df['rsi'][0]):    
+                elif check_conditionsBuy(float(df[4][499]), float(operations['nextopsval'][0]), operations['sellflag'][0], df['ma'][498], df['rsi'][498]):    
                         #print('Buy')
                         ticker = []
                         for i in reversed(range(trendParams['trend'][0])):

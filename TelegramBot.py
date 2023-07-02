@@ -100,7 +100,28 @@ def copyTrade(data, env):
         # close the cursor and connection
         cursor.close()
         if conn is not None:
-           conn.close()                 
+           conn.close() 
+
+# Def copytrade
+def copyTradeFromTo(data, env):
+    global gcount
+    try:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = f"select * from {env}.copy_params_from_to(%s, %s, %s, %s)"
+        cursor.execute(sql, data)
+        gcount = cursor.rowcount
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
+        gcount = 0
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close()                             
 
 # Def deletetoken
 def deleteTokenDb(data, env):
@@ -327,6 +348,7 @@ def callback_handler(call):
         'tradingView': tradingView,
         'Backtest': backtest, 
         'CopyBacktestToReal': CopyBacktestToReal,
+        'CopyParamsFromTo': CopyParamsFromTo,
         'SetBotStatus': SetBotStatus
     }
     # Get the function based on the call.data
@@ -345,10 +367,14 @@ def paramsmenu(m):
     button3 = InlineKeyboardButton("Set RSIValue", callback_data="SetRSIValue")
     button4 = InlineKeyboardButton("Set MAValue", callback_data="SetMAValue")
     button5 = InlineKeyboardButton("Copy Backtest To Main", callback_data="CopyBacktestToReal")
-    button6 = InlineKeyboardButton("<< Back to List", callback_data="List")
+    button6 = InlineKeyboardButton("Copy Params", callback_data="CopyParamsFromTo")
+    button7 = InlineKeyboardButton("<< Back to List", callback_data="List")
 
     # Create a nested list of buttons
-    buttons = [[button1], [button2], [button3], [button4], [button5], [button6]]
+    if genv == 'backtest':
+     buttons = [[button1], [button2], [button3], [button4], [button5], [button6], [button7]]
+    else:
+     buttons = [[button1], [button2], [button3], [button4], [button5], [button7]]
 
     # Order the buttons in the second row
     buttons[1].sort(key=lambda btn: btn.text)
@@ -768,7 +794,7 @@ def CopyBacktestToReal(m):
         markup.row(itemc)
     itemd = types.KeyboardButton('CANCEL')
     markup.row(itemd)
-    bot.send_message(cid, 'Add your pair in Upper Case, example ETHUBUSD', parse_mode='Markdown', reply_markup=markup)
+    bot.send_message(cid, 'Select your pair in Upper Case, example ETHUBUSD', parse_mode='Markdown', reply_markup=markup)
     gnext = copytimeframe
     bot.register_next_step_handler_by_chat_id(cid, timeframe)
 
@@ -809,6 +835,68 @@ def executecopy(m):
             bot.send_message(cid, "Copy done...", parse_mode='Markdown', reply_markup=markup)
         else:    
             bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)  
+
+##############CopyFromTo #################################################################
+def CopyParamsFromTo(m):
+    #get env
+    getEnv(m)
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext, genv, gframe
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)
+    bot.send_message(cid, 'Select your pair in Upper Case, example ETHUBUSD', parse_mode='Markdown', reply_markup=markup)
+    gnext = copytimeframeTo
+    bot.register_next_step_handler_by_chat_id(cid, timeframe)
+
+def copytimeframeTo(m):
+    #get env
+    getEnv(m)
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gdata, genv, gpair, gframe
+    gframe = m.text
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)
+    bot.send_message(cid, 'Select your pair to copy to in Upper Case, example ETHUBUSD', parse_mode='Markdown', reply_markup=markup)
+    bot.register_next_step_handler_by_chat_id(cid, executecopyFromTo) 
+
+
+def executecopyFromTo(m):
+    #get env
+    getEnv(m)
+    cid = m.chat.id
+    valor = m.text
+    global gdata, genv, gpair, gframe
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    gdata = (cid,gpair,gframe,valor)
+    user = getUser(cid, genv)
+    if valor == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/list')
+       markup.row(item)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    elif gpair == valor:
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/list')
+       markup.row(item)
+       bot.send_message(cid, 'You can not copy From same origin to same destination', parse_mode='Markdown', reply_markup=markup)
+    else:   
+        if  int(user['token'].values) == int(cid):
+            copyTradeFromTo(gdata, genv)
+            bot.send_message(cid, "Copy done...", parse_mode='Markdown', reply_markup=markup)
+        else:    
+            bot.send_message(cid, "User not autorized", parse_mode='Markdown', reply_markup=markup)
 
 ##############setBotStatus #################################################################
 def SetBotStatus(m):
