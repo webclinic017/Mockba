@@ -150,7 +150,7 @@ def paramsAction(data, env):
         conn = psycopg2.connect(host=host, database=database, user=user, password=password)
         cursor = conn.cursor()
         # insert data into the database
-        sql = "insert into " + env + ".parameters (trend, margingsell, margingbuy, stoploss, token, pair, timeframe, percentage_of_available) values (%s,%s,%s,%s,%s,%s,%s,%s)"
+        sql = "insert into " + env + ".parameters (trend, margingsell, margingbuy, stoploss, token, pair, timeframe, percentage_of_available, livemode) values (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
         # print(data, env)
         cursor.execute(sql, data)
         gcount = cursor.rowcount
@@ -246,6 +246,26 @@ def stopstartbot(data):
         if conn is not None:
            conn.close()                                             
 
+# Def trendTime
+def livemode(data):
+    try:
+        conn = psycopg2.connect(host=host, database=database, user=user, password=password)
+        cursor = conn.cursor()
+        # insert data into the database
+        sql = "update main.parameters set livemode = %s where token = %s and pair = %s and timeframe = %s"
+        cursor.execute(sql, data)
+        gcount = cursor.rowcount
+        # commit the transaction
+        conn.commit()
+    except psycopg2.Error as e:
+        gcount = 0
+        print("Error:", e)
+    finally:
+        # close the cursor and connection
+        cursor.close()
+        if conn is not None:
+           conn.close() 
+
 def getTicker(pair, interval):
    url = "https://api.binance.com/api/v3/klines?symbol="+pair+"E&interval="+interval
    r = requests.get(url)
@@ -291,19 +311,20 @@ def command_list(m):
     # Define the buttons
     button1 = InlineKeyboardButton("Set Enviroment (Backtest or Main)", callback_data="SetEnv")
     button2 = InlineKeyboardButton("Start/Stop Bot-Token-Timeframe", callback_data="SetBotStatus")
-    button3 = InlineKeyboardButton("Tokens Menu", callback_data="TokensMenu")
-    button4 = InlineKeyboardButton("Historical", callback_data="Historical")
-    button5 = InlineKeyboardButton("List Menu", callback_data="ListMenu")
-    button6 = InlineKeyboardButton("Params Menu", callback_data="ParamsMenu")
-    button7 = InlineKeyboardButton("Run Backtest", callback_data="Backtest")
-    button8 = InlineKeyboardButton("List", callback_data="List")
-    button9 = InlineKeyboardButton("Start", callback_data="Start")
+    button3 = InlineKeyboardButton("Enable/Disable Live Mode", callback_data="SetLiveMode")
+    button4 = InlineKeyboardButton("Tokens Menu", callback_data="TokensMenu")
+    button5 = InlineKeyboardButton("Historical", callback_data="Historical")
+    button6 = InlineKeyboardButton("List Menu", callback_data="ListMenu")
+    button7 = InlineKeyboardButton("Params Menu", callback_data="ParamsMenu")
+    button8 = InlineKeyboardButton("Run Backtest", callback_data="Backtest")
+    button9 = InlineKeyboardButton("List", callback_data="List")
+    button10 = InlineKeyboardButton("Start", callback_data="Start")
 
     # Create a nested list of buttons
     if genv == 'backtest':
-     buttons = [[button1], [button2], [button3, button4, button5], [button6, button7, button8], [button9]]
+     buttons = [[button1], [button2], [button4, button5, button6], [button7, button8, button9], [button10]]
     else:
-     buttons = [[button1], [button2], [button3, button5], [button6, button8], [button9]]
+     buttons = [[button1], [button2], [button3], [button4, button5], [button6, button8], [button9]]
       
 
     # Order the buttons in the second row
@@ -345,11 +366,13 @@ def callback_handler(call):
         'SetRSIValue': setrsivalue,
         'SetMAValue': setmavalue,
         'SetEnv': setenv,
-        'tradingView': tradingView,
         'Backtest': backtest, 
         'CopyBacktestToReal': CopyBacktestToReal,
         'CopyParamsFromTo': CopyParamsFromTo,
-        'SetBotStatus': SetBotStatus
+        'SetBotStatus': SetBotStatus,
+        'DownloadParamas': DownloadParamas,
+        'SetLiveMode': SetLiveMode,
+        'ListLiveMode': listLiveMode
     }
     # Get the function based on the call.data
     func = options.get(call.data)
@@ -415,11 +438,12 @@ def listMenu(m):
     button7 = InlineKeyboardButton("List Binance Top Volume", callback_data="ListBinanceTopVolume")
     button8 = InlineKeyboardButton("List Bot Status (Token-Timeframe)", callback_data="ListBotStatus")
     button9 = InlineKeyboardButton("List Enviroment (Backtest, Main)", callback_data="ListEnv")
-    # button10 = InlineKeyboardButton("List Chart TradingView", callback_data="tradingView")
-    button11 = InlineKeyboardButton("<< Back to list", callback_data="List")
+    button10 = InlineKeyboardButton("List LiveMode/CloseCandelstick", callback_data="ListLiveMode")
+    button11 = InlineKeyboardButton("Download all Parameters", callback_data="DownloadParamas")
+    button12 = InlineKeyboardButton("<< Back to list", callback_data="List")
 
     # Create a nested list of buttons
-    buttons = [[button1], [button2], [button3], [button4], [button5], [button6], [button7], [button8], [button9]]
+    buttons = [[button1], [button2], [button3], [button4], [button5], [button6], [button7], [button8], [button9], [button10], [button11], [button12]]
 
     # Order the buttons in the second row
     buttons[1].sort(key=lambda btn: btn.text)
@@ -579,6 +603,35 @@ def listtrendparams(m):
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')    
 
+##############Download all Params #################################################################
+def DownloadParamas(m):
+    # get env
+    getEnv(m)
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    valor = m.text
+    global gpair, gframe, genv
+    user = getUser(cid, genv)
+    if  int(user['token'].values) == cid:
+        bot.send_message(cid, 'Exporting Data...', parse_mode='Markdown')
+        df1 = pd.read_sql("SELECT * FROM " + genv + ".trend where token = '" + str(cid) + "' order by id",con=db_con)
+        df2 = pd.read_sql("SELECT * FROM " + genv + ".parameters where token = '" + str(cid) + "' order by id",con=db_con)
+        df3 = pd.read_sql("SELECT * FROM " + genv + ".indicators where token = '" + str(cid) + "' order by 5",con=db_con)
+        df1.to_excel("TrendParameters" + "_" + str(cid) + ".xlsx", index=False)
+        df2.to_excel("Parameteres" + "_" + str(cid) + ".xlsx", index=False)
+        df3.to_excel("Indicators" + "_" + str(cid) + ".xlsx", index=False)
+        file1 = open("TrendParameters" + "_" + str(cid) + ".xlsx",'rb')
+        file2 = open("Parameteres" + "_" + str(cid) + ".xlsx",'rb')
+        file3 = open("Indicators" + "_" + str(cid) + ".xlsx",'rb')
+        bot.send_document(cid,file1)
+        bot.send_document(cid,file2)
+        bot.send_document(cid,file3)
+        bot.send_message(cid, 'Done...', parse_mode='Markdown', reply_markup=markup)
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')    
+
 ##############List trend Params #################################################################
 
 ##############ListBinanceGainers #################################################################
@@ -680,47 +733,24 @@ def listEnv(m):
     else:    
         bot.send_message(cid, "User not autorized", parse_mode='Markdown')
 ##############ListEnv #################################################################
-
-##############Trading View #################################################################
-
-def tradingView(m):
-    # get env
-    getEnv(m)
-    cid = m.chat.id
-    markup = types.ReplyKeyboardMarkup()
-    global gnext, genv, gframe
-    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
-    for i in df.index:
-        itemc = types.KeyboardButton(str(df['pair'][i]))
-        markup.row(itemc)
-    itemd = types.KeyboardButton('CANCEL')
-    markup.row(itemd)    
-    bot.send_message(cid, 'Select the token you want to print in Trading View', parse_mode='Markdown', reply_markup=markup)
-    gnext = printChart
-    bot.register_next_step_handler_by_chat_id(cid, timeframe)
- 
-def printChart(m):
-    # get env
+##############ListLiveMode #################################################################
+def listLiveMode(m):
     cid = m.chat.id
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
     valor = m.text
-    global gpair, genv
+    global gpair, gframe
     user = getUser(cid, genv)
-    if gpair == 'CANCEL':
-       markup = types.ReplyKeyboardMarkup()
-       item = types.KeyboardButton('/list')
-       markup.row(item)
-       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
-    else:   
-        if  int(user['token'].values) == cid:
-            symbol = 'BINANCE:'+gpair
-            chart_url = f'https://www.tradingview.com/chart/?symbol={symbol}'
-            webbrowser.open_new_tab(chart_url)     
-        else:    
-            bot.send_message(cid, "User not autorized", parse_mode='Markdown')   
-        
+    if  int(user['token'].values) == cid:
+        df = pd.read_sql("SELECT pair, timeframe,  case when livemode = 0 then 'CloseCandelstick' else 'Live' end as mode  FROM main.parameters where token = '" + str(cid) + "' group by pair, timeframe, livemode",con=db_con)
+        a = df.index.size
+        for i in df.index:
+            bot.send_message(cid, "*Mode: *" + str(df['pair'][i]) + ' ' + str(df['timeframe'][i]) + ' ' + str(df['mode'][i]) if a != 0 else 'No records found', parse_mode='Markdown')
+            bot.send_message(cid, 'Done', parse_mode='Markdown', reply_markup=markup)        
+    else:    
+        bot.send_message(cid, "User not autorized", parse_mode='Markdown')
+      
 ##############Backtest #################################################################
 def backtest(m):
     #get env
@@ -849,7 +879,7 @@ def CopyParamsFromTo(m):
         markup.row(itemc)
     itemd = types.KeyboardButton('CANCEL')
     markup.row(itemd)
-    bot.send_message(cid, 'Select your pair in Upper Case, example ETHUBUSD', parse_mode='Markdown', reply_markup=markup)
+    bot.send_message(cid, 'From copy From', parse_mode='Markdown', reply_markup=markup)
     gnext = copytimeframeTo
     bot.register_next_step_handler_by_chat_id(cid, timeframe)
 
@@ -866,7 +896,7 @@ def copytimeframeTo(m):
         markup.row(itemc)
     itemd = types.KeyboardButton('CANCEL')
     markup.row(itemd)
-    bot.send_message(cid, 'Select your pair to copy to in Upper Case, example ETHUBUSD', parse_mode='Markdown', reply_markup=markup)
+    bot.send_message(cid, 'Select copy To', parse_mode='Markdown', reply_markup=markup)
     bot.register_next_step_handler_by_chat_id(cid, executecopyFromTo) 
 
 
@@ -1073,7 +1103,7 @@ def paramsActions(m):
     global gdata, gframe, gpair, gp5, genv, gavailable
     user = getUser(cid, genv)
     gavailable = m.text
-    gdata = (gp1.lower(), float(gp2), float(gp4), float(gp5),cid,gpair,gframe,gavailable)
+    gdata = (gp1.lower(), float(gp2), float(gp4), float(gp5),cid,gpair,gframe,gavailable,0)
     markup = types.ReplyKeyboardMarkup()
     itemd = types.KeyboardButton('/list')
     markup.row(itemd)
@@ -1418,6 +1448,63 @@ def insert_setenv(m):
             bot.send_message(cid, f"Enviroment set to {valor}...done !!", parse_mode='Markdown', reply_markup=markup)
        else:    
             bot.send_message(cid, "User not autorized", parse_mode='Markdown')  
+
+##########Set Live Mode################################################################################################
+def SetLiveMode(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext, genv
+    df = pd.read_sql("SELECT * FROM " + genv + ".t_pair where token = '" + str(cid) + "' order by id",con=db_con)
+    for i in df.index:
+        itemc = types.KeyboardButton(str(df['pair'][i]))
+        markup.row(itemc)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)    
+    bot.send_message(cid, 'Select the token you want to set the MA', parse_mode='Markdown', reply_markup=markup)
+    gnext = SetLiveMode1
+    bot.register_next_step_handler_by_chat_id(cid, timeframe)
+
+def SetLiveMode1(m):
+    cid = m.chat.id
+    markup = types.ReplyKeyboardMarkup()
+    global gnext, genv, gframe
+    gframe = m.text
+    itema = types.KeyboardButton('Live Mode')
+    itemb = types.KeyboardButton('Close Candlestick')
+    markup.row(itema)
+    markup.row(itemb)
+    itemd = types.KeyboardButton('CANCEL')
+    markup.row(itemd)    
+    bot.send_message(cid, 'Select enviroment, if you select live mode, the transaction will execute when the signal is tru, if you select Close Candelstick the transaction will execute whet the timeframe close and the signal is true. Remember Live Mode could make you loose money', parse_mode='Markdown', reply_markup=markup)
+    bot.register_next_step_handler_by_chat_id(cid, SetLiveMode2)
+
+def SetLiveMode2(m):
+    #set env
+    getEnv(m)
+    cid = m.chat.id
+    valor = m.text
+    global gdata, gframe, gpair, genv
+    user = getUser(cid, genv)
+    
+    markup = types.ReplyKeyboardMarkup()
+    itemd = types.KeyboardButton('/list')
+    markup.row(itemd)
+    if valor == 'CANCEL':
+       markup = types.ReplyKeyboardMarkup()
+       item = types.KeyboardButton('/list')
+       markup.row(item)
+       bot.send_message(cid, 'Select your option', parse_mode='Markdown', reply_markup=markup)
+    else:
+       if  int(user['token'].values) == cid:
+            if valor == 'Live Mode':
+               gdata = (1,cid,gpair, gframe)
+               livemode(gdata)
+            else:
+               gdata = (0,cid,gpair, gframe)
+               livemode(gdata)   
+            bot.send_message(cid, f"Enviroment set to {valor}...done !!", parse_mode='Markdown', reply_markup=markup)
+       else:    
+            bot.send_message(cid, "User not autorized", parse_mode='Markdown')              
 
              
 
