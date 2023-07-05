@@ -58,7 +58,27 @@ def check_params(token, pair, timeframe):
     elif table_exists:
         return False      
     else:
-        return False  
+        return False 
+
+def live_mode(token, pair, timeframe, df, closePrice):
+    """
+    Function to check live mode.
+    Parameters:
+    env : The enviroment backtest or main.
+    token: The user token.
+    pair: The pair, ex LUNCBUSD.
+    timeframe: Thetimeframe.
+    Returns:
+    bool: True if all conditions are satisfied, False otherwise.
+    """
+    ##First check ma
+    liveMode = pd.read_sql(f"SELECT livemode FROM main.parameters where token = '{token}' and timeframe = '{timeframe}'and pair = '{pair}' and trend = 'normaltrend'", con=db_con)
+    if liveMode == "1":
+       return True
+    elif liveMode == "0" and df != closePrice:
+        return True     
+    else:
+        return False         
 
 
 # # Function to check conditions for sell
@@ -198,7 +218,8 @@ while True:
             rs = avg_gain / avg_loss
             df['rsi'] = 100 - (100 / (1 + rs))
              
-            if operations['close_time'].values != df[0][499]:
+            # check if live mode or not 
+            if live_mode(row.token, row.pair, row.timeframe, operations['close_time'].values, df[0][499]):
                 # Fisrt buy
                 if operations['counterBuy'][0] == 0: 
                     #print('First Buy')
@@ -367,4 +388,4 @@ while True:
                             data = (float(vnextOps),trendquery,now.strftime("%d/%m/%Y %H:%M:%S"), row.token, row.pair, row.timeframe)    
                             #print('Updating')
                             update_trader_nextOps(data)                                                       
-    time.sleep(120) 
+    time.sleep(40) 
